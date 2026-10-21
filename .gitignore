@@ -3,6 +3,7 @@
 /dl/
 /images/
 /build/
+/provisioning/local/
 *.img
 *.img.gz
 *.wic

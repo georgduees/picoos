@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+config=/data/network/wpa_supplicant.conf
+pidfile=/run/wpa_supplicant.wlan0.pid
+
+case "$1" in
+    start)
+        if ! mountpoint -q /data; then
+            echo "WLAN: /data is not mounted; refusing to use nonpersistent credentials." >&2
+            exit 1
+        fi
+        if [ ! -s "$config" ] || [ -L "$config" ]; then
+            echo "WLAN: missing or invalid $config; setup portal is not implemented yet." >&2
+            exit 1
+        fi
+        if [ "$(stat -c '%u:%a' "$config")" != "0:600" ]; then
+            echo "WLAN: $config must be owned by root with mode 0600." >&2
+            exit 1
+        fi
+        /usr/sbin/wpa_supplicant -B -i wlan0 -D nl80211 -c "$config" -P "$pidfile"
+        ;;
+    stop)
+        if [ -f "$pidfile" ]; then
+            start-stop-daemon -K -p "$pidfile" -x /usr/sbin/wpa_supplicant
+            rm -f "$pidfile"
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac

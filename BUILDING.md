@@ -126,3 +126,48 @@ on 2026-10-21 that permission for use and redistribution has been cleared.
 This records the owner's confirmation, not an independently verified
 upstream license or a change of the font's license.
 The font is not yet wired into the console or the image build.
+
+## Private WLAN provisioning (bring-up)
+
+Run `bash scripts/prepare-wifi.sh` locally to prepare a German (`DE`)
+WPA2-Personal configuration for a 2.4 GHz network. The password is read
+without echo and passed to `wpa_passphrase` on stdin, not as a process
+argument. The plaintext-password comment is removed. The generated
+`provisioning/local/wpa_supplicant.conf` has mode 0600 and is Git-ignored.
+Its derived PSK is still a network credential and must not be published,
+cached by CI, or uploaded as an Actions artifact.
+
+This step only prepares a local file; it does not change the public image,
+connect the Pi, or write to an SD card. Install it on the test card only
+after the WLAN driver correction has been verified. Pure WPA3/SAE and
+enterprise networks are not covered by this provisioning helper.
+
+## Data partition
+
+The project post-image script creates a third, 256 MiB ext4 partition labelled
+`picoos-data`, mounted as `/data` from `/dev/mmcblk0p3` before init services.
+It seeds `/data/network/wpa_supplicant.conf.example`, `/data/pico8`,
+`/data/carts`, and `/data/ssh/base-key.pub`. Private directories are root-owned
+with mode 0700. The WLAN example is deliberately inactive; install the real
+configuration as `/data/network/wpa_supplicant.conf`, root-owned, mode 0600.
+The public SSH key is staged only; account/key activation is still pending.
+
+PICO-8 binaries and private WLAN settings are not included in GitHub artifacts.
+They must be copied locally into the data partition after flashing. Automatic
+partition/filesystem expansion to the SD card's remaining space is still
+pending. Reflashing a complete `sdcard.img` overwrites the data partition as
+well: back up provisioned data first. Future A/B updates must preserve it.
+
+The target hostname is `pico8`. The WLAN interface uses DHCP and sends that
+hostname to the DHCP server. Before requesting a lease, ifup starts
+wpa_supplicant using `/data/network/wpa_supplicant.conf`; this must reside on
+a mounted data partition, be root-owned and have mode 0600. Missing credentials
+are reported explicitly and do not start an unconfigured supplicant. The data partition is prepared by the project post-image script; private
+credential installation remains a local provisioning step.
+
+Avahi advertises the host addresses and workstation on WLAN using mDNS/DNS-SD,
+normally as `pico8.local`. No IPv4 link-local fallback is enabled: the IP address
+comes from the router's DHCP server. A conflicting hostname can cause Avahi to
+choose a suffixed name. Clients must support mDNS and the network must allow
+multicast; `.local` does not normally cross routed networks. No SSH service
+advertisement is added until the planned non-root SSH provisioning is ready.

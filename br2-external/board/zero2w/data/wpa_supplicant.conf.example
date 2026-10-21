@@ -1,0 +1,9 @@
+ctrl_interface=/var/run/wpa_supplicant
+country=DE
+
+# Copy to wpa_supplicant.conf, replace values, and set root ownership/mode 0600.
+# This example is not used automatically.
+network={
+    ssid="YOUR_2G4_WIFI"
+    psk="REPLACE_WITH_YOUR_PASSWORD"
+}

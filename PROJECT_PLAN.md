@@ -53,16 +53,22 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   responsive WLAN-Ersteinrichtungsportal bleibt als separate Weboberflaeche
   vorgesehen, da das winzige Konsolenlayout auf dem Handy unpraktisch ist.
 - SSH ist standardmaessig aktiv und nur aus dem LAN erreichbar.
+- Hostname: `pico8`; WLAN bezieht seine Adresse per DHCP. Avahi kuendigt
+  den Host per mDNS/DNS-SD als `pico8.local` im lokalen WLAN an.
+- WLAN-Zugangsdaten liegen persistent in `/data/network/wpa_supplicant.conf`,
+  root-eigen mit Modus 0600; private Zugangsdaten bleiben ausserhalb von Git
+  und oeffentlichen Images. Fuer den Bring-up ist lokale Provisionierung
+  vorgesehen, bis das Setup-Portal implementiert ist.
 - SSH verwendet den unprivilegierten Systembenutzer `pico`; direkter
   SSH-Root-Login ist deaktiviert. Der Basis-Ed25519-Schluessel liegt als
   `/data/ssh/base-key.pub` auf der Datenpartition. Beim Systemstart wird
   `pico`'s `authorized_keys` mit diesem Schluessel abgeglichen. Ersetzt der
   Nutzer die Schluesseldatei auf der Datenpartition, wird sein eigener
   Schluessel verwendet.
-- Fuer den ersten Boottest soll kein WLAN vorab ins Image eingetragen werden.
-  Das Setup-WLAN mit Konfigurationsportal muss daher vor dem ersten SSH-Zugriff
-  umgesetzt werden. Nach erfolgreicher WLAN-Einrichtung ist SSH im lokalen
-  Netzwerk erreichbar.
+- Im oeffentlichen Image werden keine privaten WLAN-Zugangsdaten eingetragen.
+  Fuer den Bring-up koennen sie lokal auf die Datenpartition provisioniert
+  werden; spaeter uebernimmt das Setup-WLAN mit Konfigurationsportal diese
+  Aufgabe. Nach erfolgreicher WLAN-Einrichtung ist SSH im LAN erreichbar.
 - Das Setup-WLAN erhaelt pro Geraet ein eigenes zufaelliges Passwort. SSID,
   Passwort und Portal-Adresse sollen in einem QR-Code bereitgestellt werden.
 - Der vom Nutzer bereitgestellte oeffentliche SSH-Schluessel wird als

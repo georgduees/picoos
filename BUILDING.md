@@ -88,7 +88,8 @@ The selected font is PICO-8 ROM Mono from
 `b7725f671958237fe5cf5fae8c6017e4a5cb171c`,
 `bitmap-fonts/p8-rom-mono.fon` (Git blob
 `d48d45ae2b9f05153e91cef47ac9e67a5e53e192`).
-It is staged locally as `assets/fonts/p8-rom-mono.fon` and ignored by Git.
-Redistribution permission is pending confirmation by the project owner;
-do not include it in public source or image artifacts until resolved.
+It is included as `assets/fonts/p8-rom-mono.fon`. The project owner confirmed
+on 2026-10-21 that permission for use and redistribution has been cleared.
+This records the owner's confirmation, not an independently verified
+upstream license or a change of the font's license.
 The font is not yet wired into the console or the image build.

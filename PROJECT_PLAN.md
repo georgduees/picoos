@@ -22,6 +22,11 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Kompatibilitaet. Damit das System auch auf dem Zero W lauffaehig sein kann,
   muss die Userspace-Toolchain mindestens ARMv6-kompatibel sein; die
   Zero-2-W-Leistung wird anschliessend gemessen.
+- Die Kernel-Konfiguration wird aus dem Raspberry-Pi-Boardprofil abgeleitet
+  und mit einem versionierten, hardwarebezogenen Fragment um nicht benoetigte
+  Treiber und Dateisysteme bereinigt. Erhalten bleiben die benoetigten Pfade
+  fuer Broadcom-WLAN/Bluetooth, VC4/HDMI, Audio, SD/ext4, USB-Speicher und
+  Controller-Eingaben.
 - Standard-Zielmedium fuer das erste SD-Karten-Image ist eine 16-GB-Karte;
   die Datenpartition wird beim ersten Systemstart bis zum Ende der SD-Karte
   vergroessert, sodass groessere Karten den zusaetzlichen Platz ebenfalls
@@ -39,6 +44,14 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Schrift muss aus einer rechtmaessig nutzbaren Quelle stammen; ein
   proprietaeres Font-Asset wird nicht ungeprueft extrahiert oder in das Image
   uebernommen.
+- Als Architekturvorschlag soll dieselbe Verwaltungslogik sowohl die lokale
+  128x128-Oberflaeche als auch eine Browser-Remote-View/Fernsteuerung bedienen.
+  Der Browser kann die Pixeloberflaeche gespiegelt anzeigen und Eingaben
+  zuruecksenden. Protobuf eignet sich fuer typisierte Status- und
+  Steuerbefehle; Bildframes sollten als effiziente Binaerdaten ueber einen
+  WebSocket-Transport uebertragen werden, nicht als Protobuf-Text. Das
+  responsive WLAN-Ersteinrichtungsportal bleibt als separate Weboberflaeche
+  vorgesehen, da das winzige Konsolenlayout auf dem Handy unpraktisch ist.
 - SSH ist standardmaessig aktiv und nur aus dem LAN erreichbar.
 - SSH verwendet den unprivilegierten Systembenutzer `pico`; direkter
   SSH-Root-Login ist deaktiviert. Der Basis-Ed25519-Schluessel liegt als

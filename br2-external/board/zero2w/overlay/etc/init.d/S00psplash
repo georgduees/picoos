@@ -1,0 +1,17 @@
+#!/bin/sh
+
+case "$1" in
+	start)
+		/usr/bin/psplash -n &
+		echo "$!" > /run/psplash.pid
+		;;
+	stop)
+		if [ -x /usr/bin/psplash-write ]; then
+			/usr/bin/psplash-write "QUIT"
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac

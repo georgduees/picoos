@@ -79,6 +79,36 @@ the current devtmpfs-only setup does not automatically load device drivers.
 WLAN interface creation and firmware loading still need hardware verification
 after this correction.
 
+The target includes `wireless-regdb` for the kernel's regulatory database
+and `iw` for WLAN diagnostics. Keep `country=DE` in the provisioned supplicant
+configuration; the database supplies regulatory rules, not the country selection.
+Older hardware images reported a missing `regulatory.db`.
+
+During WLAN bring-up, the hardware log also reported
+`brcmf_sdio_checkdied: firmware trap in dongle` and
+`Firmware has halted or crashed`, followed by SDIO device reinitialization.
+Connectivity was intermittent, including failed pings after earlier successful
+ones. The crash trigger is not established; power saving is a hypothesis,
+not a confirmed cause.
+
+On an image containing `iw`, compare connectivity with power saving enabled
+and disabled, including after an idle period:
+
+```sh
+iw dev wlan0 link
+iw dev wlan0 get power_save
+iw dev wlan0 set power_save off
+iw dev wlan0 get power_save
+ping -c 20 192.168.0.1
+dmesg | tail -n 40
+```
+
+Use the actual router address if different. Check command errors and repeat
+the same connectivity/idle test before and after the change. Restore the
+original setting afterward (`iw dev wlan0 set power_save on` if it was on).
+This is a runtime diagnostic change, not a persistent power-saving policy.
+Package selection alone does not establish that the firmware crash is fixed.
+
 The first GitHub Actions image (run 39629727082) booted on a Zero 2 W
 to the HDMI login console with a working USB keyboard when psplash was
 disabled. The original splash remained visible after startup. The init

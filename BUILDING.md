@@ -7,11 +7,14 @@ and downloaded package sources are kept outside version control.
 Configure and build from this project directory:
 
 ```sh
+make bootstrap
 make configure
 make build
 ```
 
-The first build downloads the selected external toolchain and package sources.
+`make bootstrap` downloads Buildroot 2026.05.3 and verifies its pinned SHA-256
+checksum before extraction. The first build downloads the selected external
+toolchain and package sources.
 The bootable SD-card image is produced at `output/images/sdcard.img`.
 
 The current configuration is the bring-up baseline. It builds the Zero 2 W

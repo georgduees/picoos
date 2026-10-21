@@ -51,21 +51,21 @@ jobs:
       - name: Configure
         run: |
           make configure \
-            OUTPUT_DIR=output \
-            DOWNLOAD_DIR=dl \
+            OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
+            DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
             CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
 
       - name: Build image
         run: |
           make -j2 build \
-            OUTPUT_DIR=output \
-            DOWNLOAD_DIR=dl \
+            OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
+            DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
             CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
 
       - name: Upload image
         uses: actions/upload-artifact@v4
         with:
           name: picoos-zero2w-image
-          path: output/images/*
+          path: ${{ github.workspace }}/output/images/*
           if-no-files-found: error
           retention-days: 14

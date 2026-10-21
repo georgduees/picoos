@@ -1,0 +1,63 @@
+# Storage/filesystems: SD card, ext4 system/data partitions and USB mass storage.
+# No RAID, SATA, network filesystems or alternative filesystem stacks.
+# CONFIG_ATA is not set
+# CONFIG_MD is not set
+# CONFIG_BLK_DEV_NVME is not set
+# CONFIG_BCACHE is not set
+# CONFIG_BCACHEFS_FS is not set
+# CONFIG_BTRFS_FS is not set
+# CONFIG_CEPH_FS is not set
+# CONFIG_CIFS is not set
+# CONFIG_F2FS_FS is not set
+# CONFIG_GFS2_FS is not set
+# CONFIG_JFS_FS is not set
+# CONFIG_NFS_FS is not set
+# CONFIG_OCFS2_FS is not set
+# CONFIG_XFS_FS is not set
+
+# No camera, capture card, broadcast TV or DVB hardware is part of this console.
+# CONFIG_MEDIA_SUPPORT is not set
+# CONFIG_DVB_CORE is not set
+
+# Wi-Fi is the onboard Broadcom FullMAC device. Other WLAN vendors are not used.
+# CONFIG_WLAN_VENDOR_ADMTEK is not set
+# CONFIG_WLAN_VENDOR_ATH is not set
+# CONFIG_WLAN_VENDOR_ATMEL is not set
+# CONFIG_WLAN_VENDOR_INTEL is not set
+# CONFIG_WLAN_VENDOR_INTERSIL is not set
+# CONFIG_WLAN_VENDOR_MARVELL is not set
+# CONFIG_WLAN_VENDOR_MEDIATEK is not set
+# CONFIG_WLAN_VENDOR_MICROCHIP is not set
+# CONFIG_WLAN_VENDOR_PURELIFI is not set
+# CONFIG_WLAN_VENDOR_RALINK is not set
+# CONFIG_WLAN_VENDOR_REALTEK is not set
+# CONFIG_WLAN_VENDOR_RSI is not set
+# CONFIG_WLAN_VENDOR_SILABS is not set
+# CONFIG_WLAN_VENDOR_ST is not set
+# CONFIG_WLAN_VENDOR_TI is not set
+# CONFIG_WLAN_VENDOR_ZYDAS is not set
+# CONFIG_WLAN_VENDOR_QUANTENNA is not set
+
+# Keep the VC4 HDMI/display path; remove unrelated USB/display adapters.
+# CONFIG_DRM_UDL is not set
+# CONFIG_DRM_GUD is not set
+# CONFIG_DRM_SSD130X is not set
+
+# Keep generic HID and common gamepad drivers; drop touch/tablet-only drivers.
+# CONFIG_HID_MULTITOUCH is not set
+# CONFIG_HID_NTRIG is not set
+# CONFIG_HID_WACOM is not set
+
+# Common USB storage devices use the standard USB mass-storage protocol.
+# CONFIG_USB_STORAGE_DATAFAB is not set
+# CONFIG_USB_STORAGE_FREECOM is not set
+# CONFIG_USB_STORAGE_ISD200 is not set
+# CONFIG_USB_STORAGE_USBAT is not set
+# CONFIG_USB_STORAGE_SDDR09 is not set
+# CONFIG_USB_STORAGE_SDDR55 is not set
+# CONFIG_USB_STORAGE_JUMPSHOT is not set
+# CONFIG_USB_STORAGE_ALAUDA is not set
+# CONFIG_USB_STORAGE_ONETOUCH is not set
+# CONFIG_USB_STORAGE_KARMA is not set
+# CONFIG_USB_STORAGE_CYPRESS_ATACB is not set
+# CONFIG_USB_STORAGE_ENE_UB6250 is not set

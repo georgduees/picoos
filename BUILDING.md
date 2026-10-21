@@ -26,3 +26,9 @@ packages needed for the setup access point. The setup portal, data partition,
 A/B slots, U-Boot rollback and SWUpdate integration are subsequent
 implementation steps; the baseline image is not yet the complete planned
 release.
+
+The kernel starts from Buildroot's Raspberry Pi board defaults, then applies
+`br2-external/board/zero2w/linux.fragment` to remove hardware and filesystem
+families not used by this console. The fragment deliberately retains the
+Broadcom Wi-Fi/Bluetooth paths, VC4 display, sound, SD-card/ext4, USB host and
+mass storage, and generic/common gamepad input support.

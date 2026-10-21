@@ -194,7 +194,12 @@ are reported explicitly and do not start an unconfigured supplicant. The data pa
 credential installation remains a local provisioning step.
 
 Avahi advertises the host addresses and workstation on WLAN using mDNS/DNS-SD,
-normally as `pico8.local`. No IPv4 link-local fallback is enabled: the IP address
+normally as `pico8.local`, without D-Bus.
+Buildroot builds Avahi with `--disable-dbus` when the D-Bus
+package is absent; in that build even `enable-dbus=no` is an invalid config
+key and must be omitted. D-Bus is not required for address publication or
+static DNS-SD services.
+No IPv4 link-local fallback is enabled: the IP address
 comes from the router's DHCP server. A conflicting hostname can cause Avahi to
 choose a suffixed name. Clients must support mDNS and the network must allow
 multicast; `.local` does not normally cross routed networks. No SSH service

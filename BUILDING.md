@@ -142,6 +142,10 @@ connect the Pi, or write to an SD card. Install it on the test card only
 after the WLAN driver correction has been verified. Pure WPA3/SAE and
 enterprise networks are not covered by this provisioning helper.
 
+The target enables `wpa_cli` and its control-interface support, matching the
+`ctrl_interface` directive in both generated and example configurations.
+Older images without this support must omit that directive for diagnosis.
+
 ## Data partition
 
 The project post-image script creates a third, 256 MiB ext4 partition labelled

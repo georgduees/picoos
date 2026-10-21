@@ -30,9 +30,27 @@ The bootable SD-card image is produced at `output/images/sdcard.img`.
 
 `.github/workflows/build.yml` builds the image on pushes to `main`, `develop`,
 and feature branches, on pull requests to `main` or `develop`, and on manual
-dispatch. The hosted runner uses two parallel jobs to limit memory pressure.
-Buildroot downloads and the compiler cache are cached between runs; generated
-host/build output is not reused. A successful run publishes the files from
+dispatch. The Ubuntu 24.04 hosted runner uses two parallel jobs to limit memory pressure.
+Buildroot downloads and the compiler cache are cached between runs.
+A compatible full `output/` is also cached for incremental builds. Its key
+includes the runner image version, workspace path, host compiler/libc versions,
+project Makefile, scripts and external-tree build inputs. Only the Zero 2 W
+rootfs overlay content is excluded from the build-input hash: changing it reruns
+rootfs finalization and image generation without rebuilding the kernel.
+Overlay paths, types, permissions and symlink destinations remain in the key
+so that removals/renames cannot leave stale files in the cached target tree.
+Changing the kernel configuration/artwork, toolchain, package definitions or
+build hooks deliberately starts a clean build, with compiler/download caches
+still available. Arbitrary Buildroot package changes are not assumed safe for
+incremental reuse.
+
+Each successful run saves a new output snapshot. These snapshots can be large
+and are subject to GitHub cache quotas/eviction; a missing cache falls back to
+a clean build. Absolute host paths must match, which is why this cache must
+not be copied into the laptop output directory. Existing runs are no longer
+cancelled by a newer push; pending runs may still be superseded by GitHub
+concurrency handling. Compiler-cache statistics are printed in the job log.
+A successful run publishes the files from
 `output/images/` as the `picoos-zero2w-image` artifact for 14 days.
 
 To run this build in GitHub Actions, push the branch to a GitHub repository

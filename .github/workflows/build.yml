@@ -17,11 +17,11 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
       - name: Check out source
@@ -34,11 +34,35 @@ jobs:
             bc build-essential ccache curl file libncurses-dev \
             python3 rsync unzip wget
 
+      - name: Identify compatible build environment
+        id: environment
+        run: |
+          fingerprint=$(
+            {
+              printf '%s\n' "$ImageVersion" "$GITHUB_WORKSPACE"
+              gcc --version
+              ldd --version
+              find br2-external/board/zero2w/overlay -printf '%P %y %m %l\n' | LC_ALL=C sort
+            } | sha256sum | cut -d ' ' -f 1
+          )
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+
+      - name: Restore incremental build
+        id: incremental
+        uses: actions/cache@v4
+        with:
+          path: output/
+          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
+
       - name: Cache Buildroot downloads
         uses: actions/cache@v4
         with:
           path: dl/
           key: ${{ runner.os }}-buildroot-2026.05.3-${{ hashFiles('Makefile', 'br2-external/**', 'scripts/bootstrap-buildroot.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-buildroot-2026.05.3-
 
       - name: Cache compiler
         uses: actions/cache@v4
@@ -50,10 +74,15 @@ jobs:
 
       - name: Configure
         run: |
-          make configure \
-            OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
-            DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
-            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+          if [ -f output/.config ]; then
+            make bootstrap
+            echo "Reusing compatible Buildroot output."
+          else
+            make configure \
+              OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
+              DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
+              CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+          fi
 
       - name: Build image
         run: |
@@ -61,6 +90,13 @@ jobs:
             OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
             DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
             CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+
+      - name: Report compiler cache statistics
+        if: always()
+        run: |
+          if [ -x output/host/bin/ccache ]; then
+            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache" output/host/bin/ccache --show-stats
+          fi
 
       - name: Upload image
         uses: actions/upload-artifact@v4

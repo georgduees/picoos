@@ -8,13 +8,16 @@ Configure and build from this project directory:
 
 ```sh
 make bootstrap
-make configure
-make build
+make configure OUTPUT_DIR=/path/to/ssd/picoos/output DOWNLOAD_DIR=/path/to/ssd/picoos/dl
+make build OUTPUT_DIR=/path/to/ssd/picoos/output DOWNLOAD_DIR=/path/to/ssd/picoos/dl -j8
 ```
 
 `make bootstrap` downloads Buildroot 2026.05.3 and verifies its pinned SHA-256
 checksum before extraction. The first build downloads the selected external
 toolchain and package sources.
+
+`OUTPUT_DIR` and `DOWNLOAD_DIR` may be placed on a larger mounted drive to
+keep generated build products and package downloads off the source workspace.
 The bootable SD-card image is produced at `output/images/sdcard.img`.
 
 The current configuration is the bring-up baseline. It builds the Zero 2 W

@@ -1,5 +1,6 @@
 BUILDROOT_DIR := $(CURDIR)/buildroot
-OUTPUT_DIR := $(CURDIR)/output
+OUTPUT_DIR ?= $(CURDIR)/output
+DOWNLOAD_DIR ?= $(CURDIR)/dl
 EXTERNAL_DIR := $(CURDIR)/br2-external
 DEFCONFIG := picoos_zero2w_defconfig
 
@@ -9,11 +10,11 @@ bootstrap:
 	./scripts/bootstrap-buildroot.sh
 
 configure: bootstrap
-	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) BR2_EXTERNAL=$(EXTERNAL_DIR) $(DEFCONFIG)
+	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) BR2_EXTERNAL=$(EXTERNAL_DIR) BR2_DL_DIR=$(DOWNLOAD_DIR) $(DEFCONFIG)
 
 build: bootstrap
 	@test -f $(OUTPUT_DIR)/.config || { echo "Run 'make configure' first." >&2; exit 1; }
-	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) BR2_EXTERNAL=$(EXTERNAL_DIR)
+	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) BR2_EXTERNAL=$(EXTERNAL_DIR) BR2_DL_DIR=$(DOWNLOAD_DIR)
 
 clean:
-	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) clean
+	$(MAKE) -C $(BUILDROOT_DIR) O=$(OUTPUT_DIR) BR2_DL_DIR=$(DOWNLOAD_DIR) clean

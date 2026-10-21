@@ -50,3 +50,17 @@ The kernel starts from Buildroot's Raspberry Pi board defaults, then applies
 families not used by this console. The fragment deliberately retains the
 Broadcom Wi-Fi/Bluetooth paths, VC4 display, sound, SD-card/ext4, USB host and
 mass storage, and generic/common gamepad input support.
+
+## Hardware bring-up
+
+The first GitHub Actions image (run 39629727082) booted on a Zero 2 W
+to the HDMI login console with a working USB keyboard when psplash was
+disabled. The original splash remained visible after startup. The init
+scripts now let psplash manage its own virtual console (without `-n`) so
+that quitting restores the text console; this change still needs hardware
+verification. Splash control failures are reported rather than ignored.
+
+For diagnostic boots using `init=/bin/sh`, `/proc` must be mounted manually.
+Restore the normal kernel command line before testing the normal login
+sequence. Keep the splash script executable for normal operation; to disable
+it during diagnosis, rename it outside the `S??*` init-script pattern.

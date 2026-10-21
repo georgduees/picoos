@@ -2,12 +2,16 @@
 
 case "$1" in
 	start)
-		/usr/bin/psplash -n &
+		/usr/bin/psplash &
 		echo "$!" > /run/psplash.pid
 		;;
 	stop)
-		if [ -x /usr/bin/psplash-write ]; then
-			/usr/bin/psplash-write "QUIT"
+		if [ -f /run/psplash.pid ]; then
+			if ! /usr/bin/psplash-write "QUIT"; then
+				echo "Failed to stop psplash via its control FIFO." >&2
+				exit 1
+			fi
+			rm -f /run/psplash.pid
 		fi
 		;;
 	*)

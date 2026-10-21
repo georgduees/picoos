@@ -80,3 +80,15 @@ The kernel's per-CPU logo count is unchanged (four on the Zero 2 W); the
 psplash image is independent and is not changed. An existing build needs
 `linux-reconfigure` followed by the normal image build to replace the compiled
 logo. The new logo still needs verification on hardware.
+
+## Console font work in progress
+
+The selected font is PICO-8 ROM Mono from
+<https://github.com/juanitogan/p8-programming-fonts>, revision
+`b7725f671958237fe5cf5fae8c6017e4a5cb171c`,
+`bitmap-fonts/p8-rom-mono.fon` (Git blob
+`d48d45ae2b9f05153e91cef47ac9e67a5e53e192`).
+It is staged locally as `assets/fonts/p8-rom-mono.fon` and ignored by Git.
+Redistribution permission is pending confirmation by the project owner;
+do not include it in public source or image artifacts until resolved.
+The font is not yet wired into the console or the image build.

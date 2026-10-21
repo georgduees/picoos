@@ -3,6 +3,7 @@
 /dl/
 /images/
 /build/
+/assets/fonts/p8-rom-mono.fon
 *.img
 *.img.gz
 *.wic

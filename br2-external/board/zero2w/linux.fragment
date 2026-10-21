@@ -1,3 +1,7 @@
+# Keep the CPU-count boot logos, with project artwork installed by external.mk.
+CONFIG_LOGO=y
+CONFIG_LOGO_LINUX_CLUT224=y
+
 # Storage/filesystems: SD card, ext4 system/data partitions and USB mass storage.
 # No RAID, SATA, network filesystems or alternative filesystem stacks.
 # CONFIG_ATA is not set

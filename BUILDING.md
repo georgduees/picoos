@@ -3,6 +3,9 @@
 The first target is the Raspberry Pi Zero 2 W with an ARMv6-compatible
 32-bit userspace. Buildroot 2026.05.3 is kept in `buildroot/`; generated files
 and downloaded package sources are kept outside version control.
+The board setup follows Buildroot's `raspberrypizero2w_defconfig` kernel and
+firmware choices, while retaining the ARMv6 external toolchain so the same
+userspace can later run on a Raspberry Pi Zero W.
 
 Configure and build from this project directory:
 
@@ -18,6 +21,9 @@ toolchain and package sources.
 
 `OUTPUT_DIR` and `DOWNLOAD_DIR` may be placed on a larger mounted drive to
 keep generated build products and package downloads off the source workspace.
+Compiler cache is enabled and stored under `$(OUTPUT_DIR)/ccache` by default;
+set `CCACHE_DIR` to override that location. The cache mainly speeds up later
+rebuilds when the compiler and toolchain configuration remain unchanged.
 The bootable SD-card image is produced at `output/images/sdcard.img`.
 
 The current configuration is the bring-up baseline. It builds the Zero 2 W

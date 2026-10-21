@@ -85,12 +85,19 @@ it during diagnosis, rename it outside the `S??*` init-script pattern.
 
 ## Kernel boot logo
 
-The small per-CPU kernel logos use the PICO-8 Education favicon from
-<https://www.pico-8-edu.com/favicon.ico>, used with permission confirmed by the
-project owner. The 16x16 icon was scaled to 80x80 with nearest-neighbor
-sampling, flattened onto black, and saved as an ASCII PPM in
-`br2-external/board/zero2w/kernel-logo.ppm`. The artwork remains third-party
-PICO-8 branding; permission does not imply endorsement.
+The small per-CPU kernel logos use the bright, static star from the owner's
+`bootanim.p8` cart, with its white cross and eight PICO-8 palette colors.
+The 5x5 source is `br2-external/board/zero2w/kernel-star.ppm`.
+Each source pixel becomes a uniform 16x16 block in the 80x80
+`kernel-logo.ppm`; no interpolation or antialiasing is used. This replaces
+the favicon-derived image, whose source already contained softened edges.
+Regenerate the build asset with ImageMagick:
+
+```sh
+magick br2-external/board/zero2w/kernel-star.ppm \
+  -filter point -resize 1600% -depth 8 -compress none \
+  br2-external/board/zero2w/kernel-logo.ppm
+```
 
 The external tree copies this image over `logo_linux_clut224.ppm` before
 kernel configuration. The kernel fragment enables the corresponding logo.

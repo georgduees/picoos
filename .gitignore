@@ -1,0 +1,17 @@
+/buildroot/
+/output/
+/dl/
+/images/
+/build/
+*.img
+*.img.gz
+*.wic
+*.zip
+*.tar
+*.tar.gz
+*.tar.xz
+*.log
+*.swu
+*.pem
+*.key
+*.priv

@@ -39,6 +39,14 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Schrift muss aus einer rechtmaessig nutzbaren Quelle stammen; ein
   proprietaeres Font-Asset wird nicht ungeprueft extrahiert oder in das Image
   uebernommen.
+- Als Architekturvorschlag soll dieselbe Verwaltungslogik sowohl die lokale
+  128x128-Oberflaeche als auch eine Browser-Remote-View/Fernsteuerung bedienen.
+  Der Browser kann die Pixeloberflaeche gespiegelt anzeigen und Eingaben
+  zuruecksenden. Protobuf eignet sich fuer typisierte Status- und
+  Steuerbefehle; Bildframes sollten als effiziente Binaerdaten ueber einen
+  WebSocket-Transport uebertragen werden, nicht als Protobuf-Text. Das
+  responsive WLAN-Ersteinrichtungsportal bleibt als separate Weboberflaeche
+  vorgesehen, da das winzige Konsolenlayout auf dem Handy unpraktisch ist.
 - SSH ist standardmaessig aktiv und nur aus dem LAN erreichbar.
 - SSH verwendet den unprivilegierten Systembenutzer `pico`; direkter
   SSH-Root-Login ist deaktiviert. Der Basis-Ed25519-Schluessel liegt als

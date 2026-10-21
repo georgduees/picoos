@@ -1,0 +1,6 @@
+#!/bin/sh
+
+if [ -x /usr/bin/psplash-write ] && [ -f /run/psplash.pid ]; then
+	/usr/bin/psplash-write "QUIT"
+	rm -f /run/psplash.pid
+fi

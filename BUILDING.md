@@ -158,6 +158,30 @@ partition/filesystem expansion to the SD card's remaining space is still
 pending. Reflashing a complete `sdcard.img` overwrites the data partition as
 well: back up provisioned data first. Future A/B updates must preserve it.
 
+### Flash and provision locally
+
+Prepare private credentials once with `bash scripts/prepare-wifi.sh`. Then run:
+
+```sh
+sudo bash scripts/flash-and-provision.sh \
+  /absolute/path/to/sdcard.img \
+  /dev/disk/by-id/YOUR_SD_CARD
+```
+
+The helper requires a three-partition image and a whole, unmounted target disk.
+It prints device identity and requires the resolved device path as confirmation
+before overwriting it. Back up existing data first. It verifies the flashed image,
+checks the data partition's ext4 type and `picoos-data` label, then installs:
+
+- The local `pico8/pico-8_0.2.7_raspi.zip` contents in `/data/pico8/`.
+- Private WLAN settings in `/data/network/wpa_supplicant.conf` (0600).
+- The public base key in `/data/ssh/base-key.pub`.
+
+Copied file contents are compared, writes flushed, and the data partition
+unmounted before reporting success. PICO-8 is copied, not executed. This does
+not yet verify runtime libraries or activate the `pico` SSH account. The helper
+never uploads private files to GitHub and refuses the older two-partition images.
+
 The target hostname is `pico8`. The WLAN interface uses DHCP and sends that
 hostname to the DHCP server. Before requesting a lease, ifup starts
 wpa_supplicant using `/data/network/wpa_supplicant.conf`; this must reside on

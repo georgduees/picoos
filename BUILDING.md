@@ -71,6 +71,14 @@ mass storage, and generic/common gamepad input support.
 
 ## Hardware bring-up
 
+Kernel modules are XZ-compressed (`.ko.xz`), so target XZ support must be
+enabled for kmod, not only for host depmod. The first hardware images lacked
+this target support and `modprobe brcmfmac` returned "Function not implemented".
+`/etc/modules-load.d/wifi.conf` explicitly loads brcmfmac through S11modules;
+the current devtmpfs-only setup does not automatically load device drivers.
+WLAN interface creation and firmware loading still need hardware verification
+after this correction.
+
 The first GitHub Actions image (run 39629727082) booted on a Zero 2 W
 to the HDMI login console with a working USB keyboard when psplash was
 disabled. The original splash remained visible after startup. The init

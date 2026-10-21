@@ -26,6 +26,18 @@ set `CCACHE_DIR` to override that location. The cache mainly speeds up later
 rebuilds when the compiler and toolchain configuration remain unchanged.
 The bootable SD-card image is produced at `output/images/sdcard.img`.
 
+## GitHub Actions
+
+`.github/workflows/build.yml` builds the image on pushes to `main`, `develop`,
+and feature branches, on pull requests to `main` or `develop`, and on manual
+dispatch. The hosted runner uses two parallel jobs to limit memory pressure.
+Buildroot downloads and the compiler cache are cached between runs; generated
+host/build output is not reused. A successful run publishes the files from
+`output/images/` as the `picoos-zero2w-image` artifact for 14 days.
+
+To run this build in GitHub Actions, push the branch to a GitHub repository
+with Actions enabled. The workflow does not flash a storage device.
+
 The current configuration is the bring-up baseline. It builds the Zero 2 W
 kernel and firmware, a framebuffer splash, an HDMI console, and the network
 packages needed for the setup access point. The setup portal, data partition,

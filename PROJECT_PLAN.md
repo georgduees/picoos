@@ -137,13 +137,15 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
 
-## A/B-Layout-Vorschlag (noch nicht implementiert)
+## A/B-Layout (Entwicklungsimplementierung, Hardwaretest ausstehend)
 
 Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
-Das aktuelle Bring-up-Image hat weiterhin 32 MiB Boot, einen 120-MiB-Systemslot
-und 256 MiB FAT32-Daten. Die folgende Planung aendert keine laufende SD-Karte.
+Die laufende, getestete Karte hat weiterhin 32 MiB Boot, einen 120-MiB-Systemslot
+und 256 MiB FAT32-Daten. Die neue Buildkonfiguration implementiert das folgende
+Layout, ohne die laufende Karte zu aendern. Boot, Watchdog und Rollback sind
+damit noch nicht auf Hardware nachgewiesen.
 
-Vorschlag fuer ein MBR-Layout mit vier primaeren Partitionen, jeweils
+MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:
 
 | Bereich | Start | Groesse | Format | Aufgabe |
@@ -154,7 +156,7 @@ MiB-ausgerichtet:
 | p3 System B | 577 MiB | 512 MiB | ext4 | Vollstaendiges System B einschliesslich Kernel, DTB und benoetigter Overlays |
 | p4 Daten | 1089 MiB | 1024 MiB | FAT32 | PICO-8, Cartridges, WLAN-Konfiguration und Nutzerdaten; spaeter bis Kartenende erweiterbar |
 
-512 MiB pro Systemslot ist ein Planungsvorschlag mit Reserve gegenueber dem
+512 MiB pro Systemslot ist die Entwicklungsbasis mit Reserve gegenueber dem
 aktuellen 120-MiB-System. Nach Klaerung der PICO-8-/SDL-Abhaengigkeiten ist die
 Groesse erneut zu pruefen; CI muss zu grosse Slot-Images vor Auslieferung
 abweisen. Die Datenpartition bleibt immer die letzte Partition. Ihre spaetere
@@ -168,9 +170,10 @@ Erweiterung darf weder Slot-Grenzen noch Bootloader-Zustand veraendern.
    Anwendung sowie die Uebernahme der Pi-Firmware-Geraetedaten muessen beim
    U-Boot-Bring-up geprueft werden. Ein gemeinsamer, unabhaengig ersetzter
    Linux-Kernel auf p1 ist fuer normale A/B-Systemupdates nicht vorgesehen.
-2. Die Kernel-Kommandozeile benennt die gewaehlte Root-Partition eindeutig,
-   beispielsweise per von U-Boot ermittelter PARTUUID. Das System mountet
-   seine Root-Partition im spaeteren Update-Betrieb vorzugsweise nur lesbar;
+2. Die Kernel-Kommandozeile benennt die gewaehlte mmcblk0-Root-Partition und
+   den Slot eindeutig; Linux prueft dies gegen das tatsaechliche Root-Geraet.
+   Fuer den Bring-up bleibt root beschreibbar. Im spaeteren Update-Betrieb
+   soll die Root-Partition vorzugsweise nur lesbar sein;
    veraenderliche Systemdateien benoetigen dafuer ein explizites RAM- oder
    persistentes Datenkonzept.
 3. SWUpdate prueft die Signatur eines zum Geraeteprofil passenden Pakets und
@@ -203,10 +206,9 @@ rueckwaertskompatibel oder gezielt ruecknehmbar bleiben.
 
 ### Reihenfolge vor dem Einsatz
 
-Zuerst Slot-Groessen und Boot-Konzept bestaetigen, danach U-Boot und das
-Vier-Partitionen-Image implementieren. Dabei sind alle bisherigen p3-
-Datenverweise in fstab, Image-Pruefung, Flash-/Provisionierungshelfern und
-Tests auf p4 umzustellen. Anschliessend A/B-Updates, Boot-Bestaetigung,
+U-Boot, SWUpdate mit lokalem Entwicklungsschluessel, vier Partitionen und
+p4-Datenverweise sind in der Entwicklungskonfiguration verdrahtet.
+Build-/Image-/Signaturtests pruefen die Softwareseite. Anschliessend A/B-Updates, Boot-Bestaetigung,
 Watchdog und absichtliche Fehler-/Stromausfallfaelle testen.
 Erst nach diesem Layout-Wechsel wird die automatische Datenvergroesserung
 implementiert. Ein bestehendes Drei-Partitionen-Image wird nicht im laufenden

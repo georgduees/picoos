@@ -2,7 +2,8 @@
 set -euo pipefail
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-work=$(mktemp -d)
+mkdir -p "$project_dir/provisioning/local/tmp"
+work=$(mktemp -d "$project_dir/provisioning/local/tmp/test-wifi.XXXXXX")
 trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$work/bin" "$work/data/network" "$work/run"
 export TEST_ROOT="$work"

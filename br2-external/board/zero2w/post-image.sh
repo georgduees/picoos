@@ -9,7 +9,7 @@ mkdir -p "$root/empty" "$root/data/network" "$root/data/pico8" "$root/data/carts
 cp "$board_dir/data/wpa_supplicant.conf.example" "$root/data/network/"
 cp "$BR2_EXTERNAL_PICOOS_PATH/../provisioning/data/ssh/base-key.pub" "$root/data/ssh/"
 rm -f "$BINARIES_DIR/data.vfat"
-"$HOST_DIR/sbin/mkfs.fat" -F 32 -n PICOOS-DATA -C "$BINARIES_DIR/data.vfat" 262144
+"$HOST_DIR/sbin/mkfs.fat" -F 32 -n PICOOS-DATA -C "$BINARIES_DIR/data.vfat" 1048576
 "$HOST_DIR/bin/mcopy" -s -i "$BINARIES_DIR/data.vfat" "$root/data/"* ::
 rm -f "$BINARIES_DIR/data.ext4"
 

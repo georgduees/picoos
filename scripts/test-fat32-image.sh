@@ -12,10 +12,11 @@ for tool in genimage mkfs.fat fsck.fat mcopy mdir sfdisk blkid; do
 done
 # Load the same pre-write image validation used by the flash helper.
 source "$project_dir/scripts/flash-and-provision.sh"
-work=$(mktemp -d)
+mkdir -p "$project_dir/provisioning/local/tmp"
+work=$(mktemp -d "$project_dir/provisioning/local/tmp/test-image.XXXXXX")
 trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$work/images" "$work/build" "$work/host/sbin" "$work/host/bin"
-for file in zImage bcm2710-rpi-zero-2-w.dtb rootfs.ext4; do
+for file in u-boot.bin uboot-env.bin bcm2710-rpi-zero-2-w.dtb rootfs.ext4; do
     cp --reflink=auto "$fixture/$file" "$work/images/"
 done
 cp -a "$fixture/rpi-firmware" "$work/images/"
@@ -25,11 +26,15 @@ BUILD_DIR="$work/build" HOST_DIR="$work/host" BINARIES_DIR="$work/images" \
     BR2_EXTERNAL_PICOOS_PATH="$project_dir/br2-external" \
     sh "$project_dir/br2-external/board/zero2w/post-image.sh"
 
-test "$(stat -c %s "$work/images/data.vfat")" -eq 268435456
+test "$(stat -c %s "$work/images/data.vfat")" -eq 1073741824
 test "$(blkid -p -s VERSION -o value "$work/images/data.vfat")" = FAT32
 test "$(blkid -p -s LABEL -o value "$work/images/data.vfat")" = PICOOS-DATA
 fsck.fat -n "$work/images/data.vfat"
 validate_data_image "$work/images/sdcard.img"
+dd if="$work/images/sdcard.img" of="$work/environment-a" bs=65536 skip=4 count=1 status=none
+dd if="$work/images/sdcard.img" of="$work/environment-b" bs=65536 skip=6 count=1 status=none
+cmp "$work/images/uboot-env.bin" "$work/environment-a"
+cmp "$work/images/uboot-env.bin" "$work/environment-b"
 mcopy -i "$work/images/data.vfat" ::/network/wpa_supplicant.conf.example "$work/example"
 cmp "$work/example" "$project_dir/br2-external/board/zero2w/data/wpa_supplicant.conf.example"
 mcopy -i "$work/images/data.vfat" ::/ssh/base-key.pub "$work/public-key"
@@ -46,7 +51,7 @@ expect_rejection() {
         exit 1
     fi
 }
-offset=$(sfdisk --dump "$work/images/sdcard.img" | awk '/ : start=/ { n++; if (n == 3) { split($0, parts, "start="); split(parts[2], fields, ","); gsub(/[[:space:]]/, "", fields[1]); print fields[1] } }')
+offset=$(sfdisk --dump "$work/images/sdcard.img" | awk '/ : start=/ { n++; if (n == 4) { split($0, parts, "start="); split(parts[2], fields, ","); gsub(/[[:space:]]/, "", fields[1]); print fields[1] } }')
 cp --reflink=auto "$work/images/sdcard.img" "$work/ext4.img"
 dd if="$work/images/rootfs.ext4" of="$work/ext4.img" bs=512 seek="$offset" conv=notrunc status=none
 expect_rejection "$work/ext4.img"
@@ -55,4 +60,4 @@ cp --reflink=auto "$work/images/sdcard.img" "$work/fat16.img"
 mkfs.fat -F 16 -n PICOOS-DATA -C "$work/fat16.vfat" 262144
 dd if="$work/fat16.vfat" of="$work/fat16.img" bs=512 seek="$offset" conv=notrunc status=none
 expect_rejection "$work/fat16.img"
-echo "FAT32 image tests passed (size, filesystem, MBR, seed and ext4/FAT16 rejection)."
+echo "A/B FAT32 image tests passed (exact layout, redundant environments, 1 GiB data, seed and ext4/FAT16 rejection)."

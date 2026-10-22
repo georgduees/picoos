@@ -244,10 +244,10 @@ Five router pings through `eth0` completed without loss; Dropbear ran with
 password authentication disabled (`-s`). WLAN was down during this check;
 the intermittent WLAN fault is not resolved by this Ethernet result.
 
-The project post-image script creates a third, 256 MiB **FAT32** partition labelled
-`PICOOS-DATA`, mounted as `/data` from `/dev/mmcblk0p3` before init services.
+The A/B post-image script creates a fourth, 1 GiB **FAT32** partition labelled
+`PICOOS-DATA`, mounted as `/data` from `/dev/mmcblk0p4` before init services.
 It explicitly uses `mkfs.fat -F 32`, produces `data.vfat`, and marks the MBR
-partition as FAT32 LBA (0x0C); the system partition remains ext4.
+partition as FAT32 LBA (0x0C); both 512 MiB system slots use ext4.
 It seeds `/data/network/wpa_supplicant.conf.example`, `/data/pico8`,
 `/data/carts`, and `/data/ssh/base-key.pub`. The WLAN example is deliberately
 inactive; install the real configuration as `/data/network/wpa_supplicant.conf`.
@@ -326,10 +326,11 @@ sudo bash scripts/flash-and-provision.sh \
   /dev/disk/by-id/YOUR_SD_CARD
 ```
 
-The helper requires a three-partition image and a whole, unmounted target disk.
+The helper requires the exact four-partition A/B layout and a whole, unmounted target disk.
 It prints device identity and requires the resolved device path as confirmation
 before overwriting it. Back up existing data first. Before writing, it validates
-the image's third partition type and actual FAT32 filesystem/version and label.
+the image's slot boundaries, ext4 slot filesystems, and fourth partition's
+actual FAT32 filesystem/version and label.
 After read-back verification it checks the card's FAT32 filesystem and
 `PICOOS-DATA` label, then installs:
 
@@ -342,8 +343,99 @@ attempting Unix ownership/mode changes, and compares their contents.
 Writes are flushed, and the data partition
 unmounted before reporting success. PICO-8 is copied, not executed. This does
 not yet verify runtime libraries or activate the `pico` SSH account. The helper
-never uploads private files to GitHub and refuses older two-partition/ext4-data
-images as well as FAT12/FAT16 data filesystems.
+never uploads private files to GitHub and refuses older two-/three-partition
+images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
+
+### A/B development implementation
+
+This is a new, **hardware-unverified** layout, not an in-place upgrade of the
+currently tested three-partition card. Back up `/data` before an explicitly
+approved reflash. Do not use it as a proven recovery system until the hardware
+test matrix below passes.
+
+| Region | Offset | Size |
+| --- | --- | --- |
+| Primary / redundant U-Boot environment | 0x40000 / 0x60000 | 64 KiB each |
+| p1 shared FAT32 boot | 1 MiB | 64 MiB |
+| p2 system A / p3 system B | 65 / 577 MiB | 512 MiB each |
+| p4 FAT32 data | 1089 MiB | 1024 MiB |
+
+U-Boot 2026.04 uses `rpi_3_32b` with a custom redundant MMC environment and
+boots `/boot/zImage`, DTB and `miniuart-bt.dtbo` from the selected ext4 slot.
+The firmware's shared DTB/overlay copies are needed to bring up U-Boot; the
+Linux slot's DTB receives the slot overlay and U-Boot's Raspberry Pi firmware
+fixups. This path, including framebuffer, UART, WLAN and Ethernet, still needs
+testing on the Zero 2 W. Root filesystems remain **read/write** for this bring-up;
+read-only roots and persistent SSH host keys/account configuration are not yet
+implemented. Manual changes confined to the old root do not follow a slot update.
+The shared Pi firmware and U-Boot are not A/B-protected or replaced by SWUpdate.
+
+Only a root CLI starts SWUpdate; there is no auto-started web upload or IPC
+daemon. The development signing key is kept under ignored
+`provisioning/local/update-signing/dev.key` (0600). Only
+`assets/keys/swupdate-dev.pub` is committed and installed in the image.
+GitHub builds unsigned images and never receives the private key.
+Keep a separate secure backup of that key. It is a development trust root,
+not secure boot or a finalized production signing/rotation policy.
+
+Create a signed update locally from the new build's exact 512 MiB root image:
+
+```sh
+bash scripts/make-swu.sh output/images/rootfs.ext4 0.1.0-dev \
+  provisioning/local/update-signing/dev.key /absolute/path/picoos-0.1.0-dev.swu
+```
+
+Copy the package to `/data` on an A/B-booted device, then run as root:
+
+```sh
+picoos-update /data/picoos-0.1.0-dev.swu
+reboot
+```
+
+The CLI derives the running slot from the kernel boot identity **and mounted
+root device**, refuses pending trial boots and serializes installs. SWUpdate
+verifies the RSA/SHA-256 manifest signature, board/revision and payload hashes.
+A signed preinstall guard independently refuses active or mounted target slots.
+The non-streaming raw handler writes only the inactive root, then a postinstall
+guard flushes and reads back all 512 MiB for comparison with the signed hash.
+Only afterward does SWUpdate commit slot selection via libubootenv. Temporary
+extraction uses a private directory on `/data` rather than RAM; leave room for
+the package and extracted compressed payload. Updates never format `/data`.
+
+U-Boot uses SWUpdate's `recovery_status` to fall back after interrupted/failed
+transactions. `upgrade_available=1` enables its persistent boot counter:
+three unconfirmed boots are allowed, then the stable slot is restored.
+The late local health service checks root identity, writable FAT32 data,
+boot assets, verification key and a running watchdog process before atomically
+confirming the slot with `fw_setenv -s`. It deliberately does not require
+Internet, router access or WLAN credentials. This is a **bring-up health check**,
+not yet a PICO-8/application readiness check.
+
+The BCM2835 watchdog is configured for a 15-second timeout and a 60-second
+kernel open grace period, then fed by BusyBox every five seconds. Its actual
+handoff across U-Boot, kernel and userspace must be measured on hardware.
+Required tests before relying on recovery: first boot, A-to-B and B-to-A update,
+tampered/wrong-board package rejection, deliberate failed health check, kernel
+hang/watchdog reset, three-attempt rollback, and power cuts during image writes
+and environment saves. Confirm `/data` hashes and network access after each.
+Redundant environments alone do not prove SD-controller power-loss safety.
+
+Additional host tests:
+
+- `bash scripts/test-ab-runtime.sh`: root/slot identity, inactive-slot guards and
+  read-back failure paths.
+- `bash scripts/test-uboot-env.sh /path/to/mkenvimage /path/to/fw_printenv /path/to/fw_setenv`:
+  real libubootenv reads/writes on a disposable file, confirmation syntax and
+  one corrupt redundant copy.
+- `bash scripts/test-swu.sh /path/to/rootfs.ext4 provisioning/local/update-signing/dev.key /path/to/native/swupdate`:
+  genuine SWUpdate check-only verification of both slot manifests and negative
+  signature/payload/board tests. Use a native SWUpdate build with socket paths
+  in a private home-directory workspace (Unix socket paths must be below
+  108 bytes), not target `/run` paths.
+
+Host image/signing/provisioning tests keep scratch files under ignored
+`provisioning/local/tmp`, not `/tmp`. Configure compiler/build `TMPDIR` to a
+home-directory workspace as well.
 
 The target hostname is `pico8`. The WLAN interface uses DHCP and sends that
 hostname to the DHCP server. Before requesting a lease, ifup starts

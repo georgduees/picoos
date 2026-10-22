@@ -37,6 +37,9 @@ jobs:
       - name: Test WLAN credential handling
         run: bash scripts/test-wifi-runtime.sh
 
+      - name: Test A/B slot guards
+        run: bash scripts/test-ab-runtime.sh
+
       - name: Identify compatible build environment
         id: environment
         run: |

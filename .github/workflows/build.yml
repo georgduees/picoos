@@ -113,7 +113,7 @@ jobs:
           bash scripts/test-fat32-image.sh output/images
 
       - name: Test Bluetooth runtime persistence
-        run: sh scripts/test-bluetooth-runtime.sh
+        run: sh scripts/test-state-runtime.sh
 
       - name: Upload image
         uses: actions/upload-artifact@v4

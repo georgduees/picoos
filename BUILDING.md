@@ -21,8 +21,11 @@ boot. The internal Bluetooth controller (BCM43436, firmware
 the in-kernel serdev driver, as on Raspberry Pi OS; the Linux console is
 therefore only on `tty1`, not on `ttyAMA0`. Attaching it through the mini-UART
 (`miniuart-bt`, `btattach`, `core_freq`) never got a response from the chip on
-this hardware and is not used. BlueZ pairing state is stored under
-`/data/bluetooth`, so paired devices survive A/B slot updates. A Stadia
+this hardware and is not used. Persistent runtime state (currently BlueZ pairings, `/var/lib/bluetooth`) lives
+in a 16 MiB ext4 image, `/data/picoos-state.img`, which `/etc/init.d/S35picoos-state`
+(`picoos-state prepare`) creates on first boot and loop-mounts at `/persist`. FAT32
+itself cannot store Unix modes or names like `B8:27:EB:58:92:2E`. New persistent
+settings only need an entry in `LINKS` in `picoos-state`. Paired devices survive A/B slot updates. A Stadia
 controller (Bluetooth firmware mode) has been paired and read via
 `/dev/input/js0` on hardware; no ALSA audio device has been verified.
 The local PICO-8 binary remains user-supplied data and is never copied into

@@ -119,8 +119,11 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   (Kernel-serdev, Firmware `BCM43430A1…hcd`); der Mini-UART-Weg (`miniuart-bt`,
   `btattach`, `core_freq`) lieferte am Geraet nie eine Chip-Antwort und wurde
   entfernt. Die Linux-Konsole liegt nur auf `tty1`.
-  Die BlueZ-Pairings werden auf der FAT32-
-  Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.
+  Persistenter Laufzeitzustand (zunaechst die
+  BlueZ-Pairings) liegt in einem ext4-Image `/data/picoos-state.img` auf der
+  FAT32-Datenpartition, das per Loopback nach `/persist` gemountet wird (FAT32
+  kennt weder Unix-Rechte noch Namen mit Doppelpunkt). So ueberleben die Daten
+  A/B-Systemupdates.
   Stadia-Controller-Pairing und js0-Eingabe sind am Geraet bestaetigt; SDL-Eingaben sind noch zu
   testen; Bluetooth-Audio braucht noch einen festgelegten ALSA-/Audio-Backendpfad.
 - Fuer analoge Ausgabe sind Composite-Video (Cinch/RCA) und Audio vorgesehen.

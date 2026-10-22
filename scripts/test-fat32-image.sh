@@ -51,8 +51,8 @@ for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest
     debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
         grep -Eq 'Mode:[[:space:]]+0755'
 done
-for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-bluetooth \
-    etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-bluetooth-storage \
+for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state \
+    etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
     etc/init.d/S50dropbear \
     etc/init.d/S99picoos-health \
     etc/network/interfaces etc/avahi/avahi-daemon.conf; do

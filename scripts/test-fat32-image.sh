@@ -34,15 +34,15 @@ validate_data_image "$work/images/sdcard.img"
 mcopy -i "$work/images/boot.vfat" ::config.txt "$work/boot-config.txt"
 cmp "$project_dir/br2-external/board/zero2w/config.txt" "$work/boot-config.txt"
 grep -Fxq 'kernel=u-boot.bin' "$work/boot-config.txt"
-grep -Fxq 'core_freq=250' "$work/boot-config.txt"
 grep -Fxq 'enable_uart=1' "$work/boot-config.txt"
 if grep -Eq '^dtoverlay=(pi3-)?miniuart-bt([,[:space:]]|$)' "$work/boot-config.txt"; then
     echo "Shared firmware must retain the mini-UART for rpi_3_32b U-Boot." >&2
     exit 1
 fi
-debugfs -R "dump /boot/overlays/miniuart-bt.dtbo $work/slot-miniuart-bt.dtbo" "$work/images/rootfs.ext4"
-test -s "$work/slot-miniuart-bt.dtbo"
-cmp "$work/slot-miniuart-bt.dtbo" "$work/images/rpi-firmware/overlays/miniuart-bt.dtbo"
+if grep -Eq 'miniuart-bt|btattach|ttyAMA0' "$project_dir/br2-external/board/zero2w/u-boot.env"; then
+    echo "Bluetooth must stay on the PL011 UART (no miniuart overlay, btattach or ttyAMA0 console)." >&2
+    exit 1
+fi
 debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
     > "$work/sdl2-runtime-link" 2>&1
 grep -q 'Type:[[:space:]]*symlink' "$work/sdl2-runtime-link"
@@ -53,8 +53,8 @@ for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest
 done
 for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-bluetooth \
     etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-bluetooth-storage \
-    etc/init.d/S39picoos-btattach etc/init.d/S50dropbear \
-    etc/init.d/S99picoos-health etc/default/picoos-btattach \
+    etc/init.d/S50dropbear \
+    etc/init.d/S99picoos-health \
     etc/network/interfaces etc/avahi/avahi-daemon.conf; do
     debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
     test -s "$work/installed-file"

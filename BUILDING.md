@@ -16,19 +16,15 @@ Buildroot now includes SDL2 for that runtime. The live framebuffer is
 `/dev/fb0`. BlueZ, its `bluetoothctl` client, Bluetooth HID/HOG profiles, and
 the Linux joystick test utilities are included for Bluetooth keyboards, mice,
 and controllers. The kernel loads its Bluetooth UART and HID/input modules at
-boot. The mini-UART is UART line 1, so the kernel reserves four 8250 UART
-lines; without this, its default single line rejects the internal Bluetooth
-controller. The shared firmware `config.txt` sets `core_freq=250`, which keeps
-mini-UART baud rate stable when Bluetooth is routed to mini-UART by the slot
-overlay. Because kernel serdev attach still timed out during BCM UART bring-up
-on this target, the bootloader disables the in-tree Bluetooth serdev node after
-applying `miniuart-bt`. PicoOS then starts `btattach` from
-`/etc/init.d/S39picoos-btattach` before `bluetoothd` with `/dev/ttyS1`, the
-`bcm` protocol and disabled UART flow control. Runtime defaults can be changed
-in `/etc/default/picoos-btattach`. BlueZ pairing state is stored under
-`/data/bluetooth`, so paired devices survive A/B slot updates. The current
-hardware has not yet completed a successful pairing test; no attached ALSA
-audio device has been verified either.
+boot. The internal Bluetooth controller (BCM43436, firmware
+`brcm/BCM43430A1.raspberrypi,model-zero-2-w.hcd`) stays on the PL011 UART with
+the in-kernel serdev driver, as on Raspberry Pi OS; the Linux console is
+therefore only on `tty1`, not on `ttyAMA0`. Attaching it through the mini-UART
+(`miniuart-bt`, `btattach`, `core_freq`) never got a response from the chip on
+this hardware and is not used. BlueZ pairing state is stored under
+`/data/bluetooth`, so paired devices survive A/B slot updates. A Stadia
+controller (Bluetooth firmware mode) has been paired and read via
+`/dev/input/js0` on hardware; no ALSA audio device has been verified.
 The local PICO-8 binary remains user-supplied data and is never copied into
 public images. Launching the emulator, validating rendered HDMI output/audio,
 checking SDL2 gamepad input and Bluetooth pairing/audio, and checking
@@ -543,14 +539,13 @@ update recovery until the hardware test matrix below passes.
 | p4 FAT32 data | 1089 MiB | 1024 MiB |
 
 U-Boot 2026.04 uses `rpi_3_32b` with a custom redundant MMC environment and
-boots `/boot/zImage`, DTB and `miniuart-bt.dtbo` from the selected ext4 slot.
+boots `/boot/zImage` and the DTB from the selected ext4 slot.
 U-Boot keeps its HDMI/serial text console but disables its own video logo
 and splash screen. This does not disable the Linux/PicoOS splash.
 The firmware's shared DTB is needed to bring up U-Boot. Keep the firmware UART
 in its default mini-UART configuration with `enable_uart=1`: do **not** apply
-`miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build. U-Boot applies
-`miniuart-bt.dtbo` only to the **slot-local Linux DTB**, along with its Raspberry
-Pi firmware fixups. Root filesystems remain **read/write** for this bring-up.
+`miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build; the slot
+DTB is used unmodified so Bluetooth stays on the PL011. Root filesystems remain **read/write** for this bring-up.
 The explicit diagnostic opt-in above persists its keys and Ethernet policy;
 read-only roots, the regular `pico` account and general system-configuration
 persistence are not implemented. Other changes confined to the old root do

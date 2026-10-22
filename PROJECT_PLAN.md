@@ -115,17 +115,13 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Joysticks und vergleichbaren Eingabegeraeten unterstuetzen.
 - Fuer die Eingabeunterstuetzung sind BlueZ mit `bluetoothctl`, HID/HOG,
   Kernel-HCI-UART-/HID-/evdev-/joydev-Treiber und SDL2-Joystick-Unterstuetzung
-  im Zero-2-W-Build aktiviert. Der Kernel reserviert vier 8250-UART-Linien,
-  damit die interne Bluetooth-Mini-UART auf Linie 1 registriert werden kann.
-  Zusaetzlich wird `core_freq=250` in der gemeinsamen Firmwarekonfiguration
-  gesetzt, damit die Mini-UART-Baudrate fuer den Bluetooth-Betrieb stabil
-  bleibt. Da der Kernel-Serdev-Attach auf diesem Ziel bisher beim BCM-
-  Firmwarehandshake in Timeouts lief, wird der Kernel-Bluetooth-Serdevknoten
-  beim Boot per U-Boot deaktiviert und als Fallback ein expliziter
-  `btattach`-Start vor `bluetoothd` eingeplant.
+  im Zero-2-W-Build aktiviert. Der interne Bluetooth-Chip bleibt auf der PL011
+  (Kernel-serdev, Firmware `BCM43430A1…hcd`); der Mini-UART-Weg (`miniuart-bt`,
+  `btattach`, `core_freq`) lieferte am Geraet nie eine Chip-Antwort und wurde
+  entfernt. Die Linux-Konsole liegt nur auf `tty1`.
   Die BlueZ-Pairings werden auf der FAT32-
   Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.
-  Controller-Erkennung, echtes Pairing und SDL-Eingaben sind noch am Geraet zu
+  Stadia-Controller-Pairing und js0-Eingabe sind am Geraet bestaetigt; SDL-Eingaben sind noch zu
   testen; Bluetooth-Audio braucht noch einen festgelegten ALSA-/Audio-Backendpfad.
 - Fuer analoge Ausgabe sind Composite-Video (Cinch/RCA) und Audio vorgesehen.
   Die Signale koennen bei Bedarf an den Loetpads/Testpunkten des Raspberry Pi

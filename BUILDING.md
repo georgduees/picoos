@@ -21,12 +21,14 @@ lines; without this, its default single line rejects the internal Bluetooth
 controller. The shared firmware `config.txt` sets `core_freq=250`, which keeps
 mini-UART baud rate stable when Bluetooth is routed to mini-UART by the slot
 overlay. Because kernel serdev attach still timed out during BCM UART bring-up
-on this target, PicoOS starts `btattach` from `/etc/init.d/S39picoos-btattach`
-before `bluetoothd` with `/dev/ttyS1` and the `bcm` protocol. Runtime defaults
-can be changed in `/etc/default/picoos-btattach`. BlueZ pairing state is stored
-under `/data/bluetooth`, so paired devices survive A/B slot updates. The
-current hardware has not yet completed a successful pairing test; no attached
-ALSA audio device has been verified either.
+on this target, the bootloader disables the in-tree Bluetooth serdev node after
+applying `miniuart-bt`. PicoOS then starts `btattach` from
+`/etc/init.d/S39picoos-btattach` before `bluetoothd` with `/dev/ttyS1`, the
+`bcm` protocol and disabled UART flow control. Runtime defaults can be changed
+in `/etc/default/picoos-btattach`. BlueZ pairing state is stored under
+`/data/bluetooth`, so paired devices survive A/B slot updates. The current
+hardware has not yet completed a successful pairing test; no attached ALSA
+audio device has been verified either.
 The local PICO-8 binary remains user-supplied data and is never copied into
 public images. Launching the emulator, validating rendered HDMI output/audio,
 checking SDL2 gamepad input and Bluetooth pairing/audio, and checking

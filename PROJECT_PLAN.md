@@ -120,7 +120,8 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Zusaetzlich wird `core_freq=250` in der gemeinsamen Firmwarekonfiguration
   gesetzt, damit die Mini-UART-Baudrate fuer den Bluetooth-Betrieb stabil
   bleibt. Da der Kernel-Serdev-Attach auf diesem Ziel bisher beim BCM-
-  Firmwarehandshake in Timeouts lief, wird als Fallback ein expliziter
+  Firmwarehandshake in Timeouts lief, wird der Kernel-Bluetooth-Serdevknoten
+  beim Boot per U-Boot deaktiviert und als Fallback ein expliziter
   `btattach`-Start vor `bluetoothd` eingeplant.
   Die BlueZ-Pairings werden auf der FAT32-
   Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.

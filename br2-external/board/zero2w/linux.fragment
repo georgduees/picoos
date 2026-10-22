@@ -5,7 +5,9 @@ CONFIG_LOGO_LINUX_CLUT224=y
 # Bluetooth UART, classic HID and BLE HID; evdev/joydev expose gamepads to SDL.
 CONFIG_BT=y
 CONFIG_BT_HCIUART=m
-CONFIG_BT_HCIUART_SERDEV=y
+# Serdev attach on miniuart times out during BCM firmware init on Zero 2 W;
+# keep HCI UART in line-discipline mode and attach explicitly via btattach.
+# CONFIG_BT_HCIUART_SERDEV is not set
 CONFIG_BT_HCIUART_BCM=y
 CONFIG_BT_BCM=m
 CONFIG_BT_HIDP=m

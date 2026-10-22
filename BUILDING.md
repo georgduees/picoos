@@ -18,10 +18,15 @@ the Linux joystick test utilities are included for Bluetooth keyboards, mice,
 and controllers. The kernel loads its Bluetooth UART and HID/input modules at
 boot. The mini-UART is UART line 1, so the kernel reserves four 8250 UART
 lines; without this, its default single line rejects the internal Bluetooth
-controller. BlueZ pairing state is stored under `/data/bluetooth`, so paired
-devices survive A/B slot updates. The current hardware has not yet enumerated
-an HCI controller or tested a paired device; no attached ALSA audio device has
-been verified either.
+controller. The shared firmware `config.txt` sets `core_freq=250`, which keeps
+mini-UART baud rate stable when Bluetooth is routed to mini-UART by the slot
+overlay. Because kernel serdev attach still timed out during BCM UART bring-up
+on this target, PicoOS starts `btattach` from `/etc/init.d/S39picoos-btattach`
+before `bluetoothd` with `/dev/ttyS1` and the `bcm` protocol. Runtime defaults
+can be changed in `/etc/default/picoos-btattach`. BlueZ pairing state is stored
+under `/data/bluetooth`, so paired devices survive A/B slot updates. The
+current hardware has not yet completed a successful pairing test; no attached
+ALSA audio device has been verified either.
 The local PICO-8 binary remains user-supplied data and is never copied into
 public images. Launching the emulator, validating rendered HDMI output/audio,
 checking SDL2 gamepad input and Bluetooth pairing/audio, and checking

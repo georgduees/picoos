@@ -34,6 +34,7 @@ validate_data_image "$work/images/sdcard.img"
 mcopy -i "$work/images/boot.vfat" ::config.txt "$work/boot-config.txt"
 cmp "$project_dir/br2-external/board/zero2w/config.txt" "$work/boot-config.txt"
 grep -Fxq 'kernel=u-boot.bin' "$work/boot-config.txt"
+grep -Fxq 'core_freq=250' "$work/boot-config.txt"
 grep -Fxq 'enable_uart=1' "$work/boot-config.txt"
 if grep -Eq '^dtoverlay=(pi3-)?miniuart-bt([,[:space:]]|$)' "$work/boot-config.txt"; then
     echo "Shared firmware must retain the mini-UART for rpi_3_32b U-Boot." >&2
@@ -52,8 +53,9 @@ for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest
 done
 for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-bluetooth \
     etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-bluetooth-storage \
-    etc/init.d/S50dropbear etc/init.d/S99picoos-health etc/network/interfaces \
-    etc/avahi/avahi-daemon.conf; do
+    etc/init.d/S39picoos-btattach etc/init.d/S50dropbear \
+    etc/init.d/S99picoos-health etc/default/picoos-btattach \
+    etc/network/interfaces etc/avahi/avahi-daemon.conf; do
     debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
     test -s "$work/installed-file"
     cmp "$work/installed-file" "$project_dir/br2-external/board/zero2w/overlay/$path"

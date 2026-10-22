@@ -117,6 +117,11 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Kernel-HCI-UART-/HID-/evdev-/joydev-Treiber und SDL2-Joystick-Unterstuetzung
   im Zero-2-W-Build aktiviert. Der Kernel reserviert vier 8250-UART-Linien,
   damit die interne Bluetooth-Mini-UART auf Linie 1 registriert werden kann.
+  Zusaetzlich wird `core_freq=250` in der gemeinsamen Firmwarekonfiguration
+  gesetzt, damit die Mini-UART-Baudrate fuer den Bluetooth-Betrieb stabil
+  bleibt. Da der Kernel-Serdev-Attach auf diesem Ziel bisher beim BCM-
+  Firmwarehandshake in Timeouts lief, wird als Fallback ein expliziter
+  `btattach`-Start vor `bluetoothd` eingeplant.
   Die BlueZ-Pairings werden auf der FAT32-
   Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.
   Controller-Erkennung, echtes Pairing und SDL-Eingaben sind noch am Geraet zu

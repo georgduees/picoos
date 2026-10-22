@@ -231,6 +231,22 @@ LAN; remove the temporary root authorized key after diagnosis and restore the
 desired SSH policy. The helper refuses to replace existing authorized keys
 or an existing `eth0` interface configuration.
 
+An optional third argument accepts a backed-up mode-0600 Dropbear Ed25519 host
+key. It replaces only the fresh image's standard `/etc/dropbear` symlink, never
+an existing host-key directory. This keeps the known SSH identity during a
+locally provisioned test reflash; the private key must never enter Git/CI.
+
+For an explicitly approved A/B hardware-test reflash,
+`scripts/prepare-ab-test-card.sh IMAGE WHOLE_SD_DEVICE VERIFIED_BACKUP_DIR`
+combines the normal confirmed flash with diagnostic setup on **both** slots.
+The backup directory must contain `data.tar`, `diagnostics-private.tar`,
+`archives.sha256`, matching `before.sha256` / `after.sha256`, and the verified
+`verify-data` tree. It checks archives and files before flashing, preserves the
+backed-up Ed25519 host key in both roots, then copies the full data tree to p4
+and verifies every saved file hash. All host scratch storage is under ignored
+`provisioning/local/tmp`. This is temporary test provisioning, not persistent
+SSH account/host-key handling for future SWUpdate root replacements.
+
 The shipped image contains `asix` and `ax88179_178a` modules. A Chromecast Ultra
 Ethernet power adapter still needs a working USB host connection on the Pi's
 USB data port; the presence of drivers alone does not prove cable/OTG
@@ -348,10 +364,10 @@ images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 
 ### A/B development implementation
 
-This is a new, **hardware-unverified** layout, not an in-place upgrade of the
-currently tested three-partition card. Back up `/data` before an explicitly
-approved reflash. Do not use it as a proven recovery system until the hardware
-test matrix below passes.
+This is a new layout with **first Slot A boot verified, recovery unverified**,
+not an in-place upgrade of a three-partition card. Back up `/data` before an
+explicitly approved reflash. Do not use it as a proven recovery system until
+the hardware test matrix below passes.
 
 | Region | Offset | Size |
 | --- | --- | --- |
@@ -362,10 +378,11 @@ test matrix below passes.
 
 U-Boot 2026.04 uses `rpi_3_32b` with a custom redundant MMC environment and
 boots `/boot/zImage`, DTB and `miniuart-bt.dtbo` from the selected ext4 slot.
-The firmware's shared DTB/overlay copies are needed to bring up U-Boot; the
-Linux slot's DTB receives the slot overlay and U-Boot's Raspberry Pi firmware
-fixups. This path, including framebuffer, UART, WLAN and Ethernet, still needs
-testing on the Zero 2 W. Root filesystems remain **read/write** for this bring-up;
+The firmware's shared DTB is needed to bring up U-Boot. Keep the firmware UART
+in its default mini-UART configuration with `enable_uart=1`: do **not** apply
+`miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build. U-Boot applies
+`miniuart-bt.dtbo` only to the **slot-local Linux DTB**, along with its Raspberry
+Pi firmware fixups. Root filesystems remain **read/write** for this bring-up;
 read-only roots and persistent SSH host keys/account configuration are not yet
 implemented. Manual changes confined to the old root do not follow a slot update.
 The shared Pi firmware and U-Boot are not A/B-protected or replaced by SWUpdate.
@@ -419,6 +436,26 @@ tampered/wrong-board package rejection, deliberate failed health check, kernel
 hang/watchdog reset, three-attempt rollback, and power cuts during image writes
 and environment saves. Confirm `/data` hashes and network access after each.
 Redundant environments alone do not prove SD-controller power-loss safety.
+
+#### First A/B hardware boot (2026-10-22)
+
+The original image from Actions run 39772416660 (`c5887b6`) remained at the
+firmware rainbow screen with no Ethernet SSH. A controlled test removed only
+`dtoverlay=miniuart-bt` from p1 `config.txt`, retaining the original file as
+`config-before-uart-test.txt`. U-Boot/Linux output and Ethernet SSH then worked.
+The fix is now part of the board configuration; the downloaded original image
+is still the pre-fix artifact and must not be represented as a corrected image.
+The reversible `scripts/prepare-uboot-uart-test.sh BOOT_PARTITION test|restore`
+helper changes only this p1 setting, not root slots, data or boot environment.
+
+The running Zero 2 W booted kernel `6.12.61-v7` from p2 with `picoos.slot=A`,
+mounted FAT32 `/data` from p4, and confirmed `boot_slot=stable_slot=A`,
+`upgrade_available=0`, `bootcount=0`, `ustate=0`. BusyBox watchdog was running;
+sysfs reported the BCM2835 watchdog active, timeout 15 seconds and nowayout 1.
+WLAN authenticated automatically and Ethernet key-only SSH retained the
+backed-up host identity. All 12 data files matched the pre-A/B SHA-256 manifest.
+This verifies the normal first boot, **not** a forced watchdog reset, Slot B,
+SWUpdate switching, three-attempt rollback or power-loss behavior.
 
 Additional host tests:
 

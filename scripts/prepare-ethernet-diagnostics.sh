@@ -4,7 +4,8 @@ umask 077
 
 fail() { echo "Error: $*" >&2; exit 1; }
 
-[ "$#" -eq 2 ] || fail "Usage: sudo bash $0 ROOTFS_PARTITION PUBLIC_KEY"
+[ "$#" -eq 2 ] || [ "$#" -eq 3 ] ||
+    fail "Usage: sudo bash $0 ROOTFS_PARTITION PUBLIC_KEY [ED25519_HOST_KEY]"
 [ "$EUID" -eq 0 ] || fail "Run with sudo."
 partition=$(readlink -e -- "$1")
 key=$(readlink -e -- "$2")
@@ -14,10 +15,19 @@ key=$(readlink -e -- "$2")
 [ "$(blkid -s LABEL -o value "$partition")" = rootfs ] || fail "Expected rootfs label."
 [ -f "$key" ] || fail "Public key is not a regular file."
 ssh-keygen -lf "$key"
+host_key=
+if [ "$#" -eq 3 ]; then
+    host_key=$(readlink -e -- "$3")
+    [ -f "$host_key" ] && [ -s "$host_key" ] &&
+        [ "$(stat -c %a "$host_key")" = 600 ] ||
+        fail "Host key must be a nonempty mode-0600 regular file."
+fi
 if findmnt -rn -S "$partition" >/dev/null; then
     fail "Partition is already mounted; unmount it first."
 fi
-work=$(mktemp -d)
+project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+mkdir -p "$project_dir/provisioning/local/tmp"
+work=$(mktemp -d "$project_dir/provisioning/local/tmp/ethernet-diagnostics.XXXXXX")
 mounted=no
 cleanup() {
     if [ "$mounted" = yes ]; then
@@ -47,6 +57,11 @@ for path in root/.ssh etc/default/dropbear etc/modules-load.d/ethernet.conf; do
 done
 [ ! -e "$work/root/.ssh/authorized_keys" ] ||
     fail "Existing authorized_keys; inspect before replacing it."
+if [ -n "$host_key" ]; then
+    [ -L "$work/etc/dropbear" ] &&
+        [ "$(readlink "$work/etc/dropbear")" = /var/run/dropbear ] ||
+        fail "Expected the fresh image's /etc/dropbear symlink; refusing to replace existing host keys."
+fi
 backup="$work/root/ethernet-diagnostics-backup-$(date +%Y%m%d-%H%M%S).tar"
 paths=(etc/network/interfaces etc/avahi/avahi-daemon.conf)
 for path in etc/default/dropbear etc/modules-load.d/ethernet.conf; do
@@ -63,6 +78,12 @@ install -d -m 700 "$work/root/.ssh"
 install -m 600 "$key" "$work/root/.ssh/authorized_keys"
 sed -i 's/^allow-interfaces=wlan0$/allow-interfaces=wlan0,eth0/' "$work/etc/avahi/avahi-daemon.conf"
 cmp "$key" "$work/root/.ssh/authorized_keys"
+if [ -n "$host_key" ]; then
+    rm "$work/etc/dropbear"
+    install -d -m 700 "$work/etc/dropbear"
+    install -m 600 "$host_key" "$work/etc/dropbear/dropbear_ed25519_host_key"
+    cmp "$host_key" "$work/etc/dropbear/dropbear_ed25519_host_key"
+fi
 sync
 umount "$work"
 mounted=no

@@ -7,7 +7,7 @@ if [ "$#" -ne 1 ]; then
 fi
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 fixture=$(readlink -e -- "$1")
-for tool in genimage mkfs.fat fsck.fat mcopy mdir sfdisk blkid; do
+for tool in genimage mkfs.fat fsck.fat mcopy mdir sfdisk blkid debugfs; do
     command -v "$tool" >/dev/null
 done
 # Load the same pre-write image validation used by the flash helper.
@@ -31,6 +31,17 @@ test "$(blkid -p -s VERSION -o value "$work/images/data.vfat")" = FAT32
 test "$(blkid -p -s LABEL -o value "$work/images/data.vfat")" = PICOOS-DATA
 fsck.fat -n "$work/images/data.vfat"
 validate_data_image "$work/images/sdcard.img"
+mcopy -i "$work/images/boot.vfat" ::config.txt "$work/boot-config.txt"
+cmp "$project_dir/br2-external/board/zero2w/config.txt" "$work/boot-config.txt"
+grep -Fxq 'kernel=u-boot.bin' "$work/boot-config.txt"
+grep -Fxq 'enable_uart=1' "$work/boot-config.txt"
+if grep -Eq '^dtoverlay=(pi3-)?miniuart-bt([,[:space:]]|$)' "$work/boot-config.txt"; then
+    echo "Shared firmware must retain the mini-UART for rpi_3_32b U-Boot." >&2
+    exit 1
+fi
+debugfs -R "dump /boot/overlays/miniuart-bt.dtbo $work/slot-miniuart-bt.dtbo" "$work/images/rootfs.ext4"
+test -s "$work/slot-miniuart-bt.dtbo"
+cmp "$work/slot-miniuart-bt.dtbo" "$work/images/rpi-firmware/overlays/miniuart-bt.dtbo"
 dd if="$work/images/sdcard.img" of="$work/environment-a" bs=65536 skip=4 count=1 status=none
 dd if="$work/images/sdcard.img" of="$work/environment-b" bs=65536 skip=6 count=1 status=none
 cmp "$work/images/uboot-env.bin" "$work/environment-a"
@@ -60,4 +71,4 @@ cp --reflink=auto "$work/images/sdcard.img" "$work/fat16.img"
 mkfs.fat -F 16 -n PICOOS-DATA -C "$work/fat16.vfat" 262144
 dd if="$work/fat16.vfat" of="$work/fat16.img" bs=512 seek="$offset" conv=notrunc status=none
 expect_rejection "$work/fat16.img"
-echo "A/B FAT32 image tests passed (exact layout, redundant environments, 1 GiB data, seed and ext4/FAT16 rejection)."
+echo "A/B FAT32 image tests passed (UART boot settings, slot overlay, layout, redundant environments, 1 GiB data, seed and ext4/FAT16 rejection)."

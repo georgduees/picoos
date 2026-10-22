@@ -137,13 +137,16 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
 
-## A/B-Layout (Entwicklungsimplementierung, Hardwaretest ausstehend)
+## A/B-Layout (Slot A getestet, Recoverytests ausstehend)
 
 Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
-Die laufende, getestete Karte hat weiterhin 32 MiB Boot, einen 120-MiB-Systemslot
-und 256 MiB FAT32-Daten. Die neue Buildkonfiguration implementiert das folgende
-Layout, ohne die laufende Karte zu aendern. Boot, Watchdog und Rollback sind
-damit noch nicht auf Hardware nachgewiesen.
+Die bisherige Drei-Partitionen-Karte hatte 32 MiB Boot, einen
+120-MiB-Systemslot und 256 MiB FAT32-Daten. Die neue Buildkonfiguration
+implementiert das folgende Layout. Die Karte wurde nach gepruefter Sicherung ausdruecklich fuer den
+Hardwaretest neu geschrieben. Der erste Slot-A-Boot mit p4-Daten, WLAN,
+Ethernet-SSH, lokaler Bestaetigung und aktivem Watchdog ist nach der
+Firmware-UART-Korrektur nachgewiesen; Slot B, Updatewechsel, erzwungener
+Watchdog-Neustart und Rollback sind noch offen.
 
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:

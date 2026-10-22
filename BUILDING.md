@@ -364,8 +364,9 @@ images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 
 ### A/B development implementation
 
-This is a new layout with **A/B boots and three-attempt watchdog rollback
-verified**; actual SWUpdate installation and power-loss tests remain pending.
+This is a new layout with **A/B boots, three-attempt watchdog rollback and
+signed A-to-B SWUpdate installation verified**. Reverse-direction SWUpdate,
+arbitrary kernel-hang and power-loss tests remain pending.
 It is not an in-place upgrade of a three-partition card. Back up `/data`
 before an explicitly approved reflash. Do not treat this as fully qualified
 update recovery until the hardware test matrix below passes.
@@ -432,8 +433,9 @@ Internet, router access or WLAN credentials. This is a **bring-up health check**
 not yet a PICO-8/application readiness check.
 
 The BCM2835 watchdog is configured for a 15-second timeout and a 60-second
-kernel open grace period, then fed by BusyBox every five seconds. Its actual
-handoff across U-Boot, kernel and userspace must be measured on hardware.
+kernel open grace period, then fed by BusyBox every five seconds. Automatic
+resets without a userspace feeder were observed in the controlled test below;
+this does not establish behavior under arbitrary kernel hangs.
 Required tests before relying on recovery: first boot, A-to-B and B-to-A update,
 tampered/wrong-board package rejection, deliberate failed health check, kernel
 hang/watchdog reset, three-attempt rollback, and power cuts during image writes
@@ -505,6 +507,54 @@ working WLAN/SSH and active watchdog. All 12 `/data` file hashes after the
 rollback matched the verified pre-A/B backup. This verifies the configured
 attempt limit, automatic fallback and repaired slot; it does **not** test
 power loss or an actual SWUpdate raw-image installation.
+
+#### Signed SWUpdate hardware installation (2026-10-22)
+
+The existing development package `picoos-0.1.0-c5887b6.swu` was used to test
+the actual update engine independently of the newer shared U-Boot binary.
+Its SHA-256 is
+`f7ea50db29da60d4f2d6fe3c0941dd399c949ba062a4680237b7f2ce7c541f64`.
+This is the root version already used for bring-up; its original shared
+firmware/U-Boot files were **not** installed. The live shared environment
+retained the separately corrected `select_slot`.
+
+On the Zero 2 W, SWUpdate check-only accepted both signed slot selections and
+rejected a wrong board, wrong hardware revision, modified signed manifest
+and modified guard payload. Inactive B and shared p1 hashes were unchanged,
+as were the active boot assets, boot environment and all 12 data files.
+A raw checksum of the mounted read/write active root is not an appropriate
+no-write test: normal logging and filesystem metadata change it.
+
+From confirmed A, the real `picoos-update` CLI then installed B successfully,
+including its signed pre/postinstall guards and bootloader handler. An
+additional full 512 MiB readback matched the original root image SHA-256:
+`47e4f79271597cf554cdd2f89a4d82d58265309443a985874475c974684d4305`.
+Before reboot, the environment showed `boot_slot=B`, `stable_slot=A`,
+`upgrade_available=1`, `bootcount=0`; shared p1 and A boot assets remained
+unchanged.
+
+**Test-only provisioning, explicitly approved:** the public root image does
+not contain local Ethernet/root-SSH configuration or private host keys.
+After the raw readback, inactive B was mounted and only the previously
+backed-up Ethernet, Avahi and key-only Dropbear/root-SSH diagnostics restored
+from A. Every restored file was compared, key modes checked and B unmounted
+before reboot. The raw image checksum is the result **before** this intentional
+local modification. No private keys were embedded in the signed package or
+uploaded. This is not automatic configuration persistence across updates.
+
+B then booted p3 under a new kernel boot identity, confirmed itself, cleared
+the trial counters and remained in the same boot beyond 90 seconds with the
+15-second nowayout watchdog active. Original host-key SSH, authenticated WLAN
+and ten router pings explicitly bound to WLAN succeeded without loss.
+All 12 data file hashes matched the original pre-A/B backup.
+Current test-card state is confirmed B. Actual reverse B-to-A SWUpdate,
+power cuts, arbitrary kernel hangs and application readiness remain untested.
+
+Actions run 39790580285 (`0afcfac`) successfully built the corrected default
+selector and text-only U-Boot. The downloaded image also passed the local
+UART/slot-overlay, redundant-environment, layout and FAT32 tests. The new
+shared U-Boot binary has **not** been installed on this card; the root-only
+hardware update above neither tests its display nor replaces p1.
 
 Additional host tests:
 

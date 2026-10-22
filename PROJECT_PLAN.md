@@ -137,7 +137,7 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
 
-## A/B-Layout (A/B-Starts und Watchdog-Rollback getestet)
+## A/B-Layout (A/B-Starts, Watchdog-Rollback und SWUpdate A-nach-B getestet)
 
 Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
 Die bisherige Drei-Partitionen-Karte hatte 32 MiB Boot, einen
@@ -151,7 +151,18 @@ Drei unbestaetigte A-Starts mit Zaehler 1/2/3, automatische Watchdog-Neustarts
 und Rueckfall auf bestaetigtes B wurden getestet. Der voruebergehend
 deaktivierte A-Health-Check wurde wiederhergestellt und ein normaler
 Rueckstart nach A bestaetigt. Alle 12 Nutzdateien blieben hashgleich.
-Eine echte SWUpdate-Installation und Stromausfalltests sind noch offen.
+Eine echte signierte SWUpdate-Installation von A nach B mit vollstaendigem
+512-MiB-Readback, Neustart und automatischer Bestaetigung von B ist ebenfalls
+getestet. Manipulierte Pakete sowie falsches Board/Revision wurden vom echten
+SWUpdate auf dem Pi abgewiesen. Der private Ethernet-/Schluessel-SSH-Zugang
+wurde nach dem Raw-Schreiben ausdruecklich als Testprovisionierung in B
+wiederhergestellt; dauerhafte Konfigurationspersistenz ist damit nicht geloest.
+B lief danach laenger als 90 Sekunden mit aktivem Watchdog, WLAN und
+unveraenderten 12 Nutzdateien. Aktuell ist B bestaetigt.
+SWUpdate in Gegenrichtung, beliebige Kernel-Haenger und Stromausfalltests
+sind noch offen. CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
+ohne eigenes Logo/Splash gebaut; das heruntergeladene Image ist geprueft,
+der gemeinsame Bootloader auf der Testkarte aber noch nicht ersetzt.
 
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:
@@ -187,7 +198,9 @@ Erweiterung darf weder Slot-Grenzen noch Bootloader-Zustand veraendern.
 3. SWUpdate prueft die Signatur eines zum Geraeteprofil passenden Pakets und
    schreibt ausschliesslich den inaktiven Systemslot. Das Slot-Image enthaelt
    Rootfs, Kernel, Module, DTB und Overlays als zusammengehoerige Version.
-   Der aktive Slot, p1 und die Datenpartition werden dabei nicht beschrieben.
+   Der aktive Slot und p1 sind keine Installationsziele des Raw-Handlers.
+   Nutzdateien auf der Datenpartition werden nicht ersetzt; dort werden
+   voruebergehend private Update-Arbeitsdateien angelegt und wieder entfernt.
 4. Erst nach vollstaendigem Schreiben, Pruefen und Flushen wird der neue Slot
    als Teststart vorgemerkt. Der bisherige Slot bleibt als bestaetigte
    Rueckfallversion erhalten. Ohne vollstaendige Installation erfolgt kein

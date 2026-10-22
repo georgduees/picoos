@@ -92,6 +92,7 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   durch Abruf von einem Update-Server einspielen koennen.
 - PICO-8-Dateien und spaetere Nutzerdaten liegen auf einer separaten
   FAT32-Datenpartition, damit Windows, macOS und Linux darauf zugreifen koennen.
+  Die Standardgroesse im kuenftigen Image betraegt 1 GiB (1024 MiB).
   FAT32 speichert keine Unix-Rechte oder Symlinks; einzelne Dateien duerfen
   hoechstens 4 GiB minus ein Byte gross sein. Die automatische Erweiterung auf
   den verfuegbaren Rest der SD-Karte ist weiterhin geplant, nicht implementiert.
@@ -135,6 +136,81 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Zero W darf die Erreichbarkeit nicht vorausgesetzt werden. Verbindungsart,
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
+
+## A/B-Layout-Vorschlag (noch nicht implementiert)
+
+Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
+Das aktuelle Bring-up-Image hat weiterhin 32 MiB Boot, einen 120-MiB-Systemslot
+und 256 MiB FAT32-Daten. Die folgende Planung aendert keine laufende SD-Karte.
+
+Vorschlag fuer ein MBR-Layout mit vier primaeren Partitionen, jeweils
+MiB-ausgerichtet:
+
+| Bereich | Start | Groesse | Format | Aufgabe |
+| --- | --- | --- | --- | --- |
+| Reservierter Anfang | 0 MiB | 1 MiB | MBR und reservierter Rohbereich | Platz fuer redundanten U-Boot-Zustand; nicht als Partition |
+| p1 Boot | 1 MiB | 64 MiB | FAT32 | Raspberry-Pi-Firmware, U-Boot und minimales gemeinsames Boot-Setup |
+| p2 System A | 65 MiB | 512 MiB | ext4 | Vollstaendiges System A einschliesslich Kernel, DTB und benoetigter Overlays |
+| p3 System B | 577 MiB | 512 MiB | ext4 | Vollstaendiges System B einschliesslich Kernel, DTB und benoetigter Overlays |
+| p4 Daten | 1089 MiB | 1024 MiB | FAT32 | PICO-8, Cartridges, WLAN-Konfiguration und Nutzerdaten; spaeter bis Kartenende erweiterbar |
+
+512 MiB pro Systemslot ist ein Planungsvorschlag mit Reserve gegenueber dem
+aktuellen 120-MiB-System. Nach Klaerung der PICO-8-/SDL-Abhaengigkeiten ist die
+Groesse erneut zu pruefen; CI muss zu grosse Slot-Images vor Auslieferung
+abweisen. Die Datenpartition bleibt immer die letzte Partition. Ihre spaetere
+Erweiterung darf weder Slot-Grenzen noch Bootloader-Zustand veraendern.
+
+### Boot- und Update-Ablauf
+
+1. Die Raspberry-Pi-Firmware startet U-Boot von p1. U-Boot waehlt einen Slot
+   und laedt dessen Kernel und passenden Device Tree aus demselben Systemslot.
+   Auch benoetigte Overlays gehoeren zur jeweiligen Systemversion; ihre
+   Anwendung sowie die Uebernahme der Pi-Firmware-Geraetedaten muessen beim
+   U-Boot-Bring-up geprueft werden. Ein gemeinsamer, unabhaengig ersetzter
+   Linux-Kernel auf p1 ist fuer normale A/B-Systemupdates nicht vorgesehen.
+2. Die Kernel-Kommandozeile benennt die gewaehlte Root-Partition eindeutig,
+   beispielsweise per von U-Boot ermittelter PARTUUID. Das System mountet
+   seine Root-Partition im spaeteren Update-Betrieb vorzugsweise nur lesbar;
+   veraenderliche Systemdateien benoetigen dafuer ein explizites RAM- oder
+   persistentes Datenkonzept.
+3. SWUpdate prueft die Signatur eines zum Geraeteprofil passenden Pakets und
+   schreibt ausschliesslich den inaktiven Systemslot. Das Slot-Image enthaelt
+   Rootfs, Kernel, Module, DTB und Overlays als zusammengehoerige Version.
+   Der aktive Slot, p1 und die Datenpartition werden dabei nicht beschrieben.
+4. Erst nach vollstaendigem Schreiben, Pruefen und Flushen wird der neue Slot
+   als Teststart vorgemerkt. Der bisherige Slot bleibt als bestaetigte
+   Rueckfallversion erhalten. Ohne vollstaendige Installation erfolgt kein
+   Slotwechsel.
+5. U-Boot verwendet einen persistenten Versuchszustand und begrenzt die
+   Teststarts, als Vorschlag auf drei Versuche. Ein Health-Check bestaetigt
+   den neuen Slot erst nach erfolgreichem Start der benoetigten lokalen
+   Dienste und Einbindung der Datenpartition. Internet- oder Router-
+   Erreichbarkeit darf keine Voraussetzung fuer die Boot-Bestaetigung sein.
+   Nach ausbleibender Bestaetigung wird beim naechsten Neustart auf die
+   bestaetigte Version zurueckgeschaltet.
+6. Fuer ein haengendes System ist zusaetzlich ein getesteter Hardware-Watchdog
+   erforderlich: Ein Boot-Zaehler allein startet ein haengendes Geraet nicht
+   neu. Redundante U-Boot-Environment-Kopien, konkrete Rohbereich-Offsets und
+   die passende SWUpdate-/fw_env-Konfiguration sind gemeinsam festzulegen
+   und mit Stromausfalltests zu verifizieren.
+
+Die gemeinsame Pi-Firmware und U-Boot auf p1 sind bei diesem Vorschlag
+**nicht A/B-abgesichert**. Ihre Aktualisierung ist ein separater, bewusst
+eingeschraenkter Wartungsschritt mit eigenem Wiederherstellungsweg.
+Ein normales Systemrollback setzt ausserdem voraus, dass beide Versionen
+die persistenten Daten verstehen; Konfigurationsmigrationen muessen deshalb
+rueckwaertskompatibel oder gezielt ruecknehmbar bleiben.
+
+### Reihenfolge vor dem Einsatz
+
+Zuerst Slot-Groessen und Boot-Konzept bestaetigen, danach U-Boot und das
+Vier-Partitionen-Image implementieren. Dabei sind alle bisherigen p3-
+Datenverweise in fstab, Image-Pruefung, Flash-/Provisionierungshelfern und
+Tests auf p4 umzustellen. Anschliessend A/B-Updates, Boot-Bestaetigung,
+Watchdog und absichtliche Fehler-/Stromausfallfaelle testen.
+Erst nach diesem Layout-Wechsel wird die automatische Datenvergroesserung
+implementiert. Ein bestehendes Drei-Partitionen-Image wird nicht im laufenden
+Betrieb umpartitioniert; der Wechsel erfolgt mit Sicherung und Neu-Flashen.
 
 ## Vorgesehene Ausbaustufen
 

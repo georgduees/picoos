@@ -166,9 +166,16 @@ WLAN und SSH erreichbar. Alle 12 Nutzdateien und die gemeinsame Bootpartition
 blieben hashgleich. Nach diesem Test war A bestaetigt; Zaehler und Upgrade-Marker
 waren 0.
 Beliebige Kernel-Haenger und Stromausfalltests sind noch offen.
-CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
-ohne eigenes Logo/Splash gebaut; das heruntergeladene Image ist geprueft,
-der gemeinsame Bootloader auf der Testkarte aber noch nicht ersetzt.
+CI-Lauf 39805575018 (Buildroot, Diagnose-, WLAN-, A/B- und FAT32-Tests)
+ist erfolgreich. Der gemeinsame p1-U-Boot wurde danach kontrolliert durch
+den Build mit abgeschaltetem VIDEO_LOGO/SPLASH_SCREEN ersetzt; Video- und
+serielle Textkonsole bleiben aktiv. Nur u-boot.bin wurde atomar ersetzt;
+Firmwareconfig/UART, redundante Environment, beide Roots und /data blieben
+unangetastet. Ein exaktes 64-MiB-Rohbackup von p1 liegt geprueft auf /data und
+zusaetzlich lokal unter provisioning/local/backups. Der neue Bootloader startete
+erfolgreich in bestaetigtes A; Persistenz, Watchdog und WLAN funktionieren.
+Aktuell ist A bestaetigt. Keine unabhaengige HDMI-Aufnahme zur visuellen
+Logo-Pruefung; der Linux-Bootsplash ist unveraendert.
 
 **Explizite Diagnosepersistenz:**
 
@@ -200,8 +207,19 @@ Nach Neustart richteten sie SSH/Ethernet selbst aus den persistenten Daten ein
 und bestaetigten sich. Hostidentitaet, Schluessel-only-Anmeldung, RAM-Rechte
 0600, Watchdog, WLAN sowie unveraenderte 15 Dateien und p1 sind nachgewiesen.
 Aktuell ist A bestaetigt, B bleibt als vorheriger persistenter Root-Slot
-erhalten. Der vollstaendige CI-Neubau und allgemeine System-/pico-Konfiguration
-sind von diesen lokalen Root-Tests zu unterscheiden.
+erhalten. Der vollstaendige CI-Neubau 39805575018 ist inzwischen erfolgreich;
+die lokal assemblierten Root-Images fuer den Hardwaretest sind davon getrennt.
+Allgemeine System-/pico-Konfiguration ist noch nicht persistent umgesetzt.
+
+Der U-Boot ohne eigenes Logo/Splash aus diesem CI-Artefakt wurde danach
+kontrolliert auf p1 installiert. Ein hashverifiziertes, exakt 64-MiB grosses
+Rohbackup der vorherigen Bootpartition liegt sowohl auf `/data` als auch
+ausgelagert unter `provisioning/local/backups/bootloader-20261022.*`.
+Nur `u-boot.bin` auf p1 wurde ersetzt; nach Neustart startete und bestaetigte
+sich A, persistenter SSH-Zugang, Watchdog, WLAN und Nutzdaten blieben intakt.
+Das Wiederherstellungsskript `scripts/restore-picoos-boot-partition.sh`
+schreibt nach Layout-/Hashpruefung ausschliesslich p1 zurueck.
+Die Textkonsole bleibt konfiguriert; eine externe HDMI-Aufnahme gibt es nicht.
 
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:

@@ -457,7 +457,47 @@ password/keyboard-interactive. WLAN authenticated, ten WLAN-bound router pings
 had no loss, all 15 stored data-file hashes matched the private pre-update
 backup, and shared p1 was unchanged. **Current test-card state is confirmed A**
 using persistent diagnostics; B is the preceding persistent-configuration
-root fallback. The new shared U-Boot binary was not installed.
+root fallback.
+
+#### Text-only U-Boot hardware installation (2026-10-22)
+
+Actions run `39805575018` completed successfully: full Buildroot build,
+diagnostic/WLAN/A/B tests, FAT32/layout tests and artifact upload. Its
+`u-boot.bin` SHA-256 is
+`66d8908050385f9f0d8c9d49c9825bc16b3c71eac944a193c4683488d408e5cd`.
+The resolved U-Boot configuration has `CONFIG_VIDEO_LOGO` and
+`CONFIG_SPLASH_SCREEN` disabled, while `CONFIG_VIDEO`,
+`CONFIG_VIDEO_BCM2835`, and the serial console remain enabled. Thus the U-Boot
+logo/splash are removed without disabling the text console. The Linux/PicoOS
+splash remains enabled and unchanged.
+
+Before changing the shared firmware partition, the live 64 MiB p1 was saved
+as a raw image on `/data` at
+`/data/bootloader-maintenance-20261022/p1-before.img`, SHA-256 verified and
+byte-compared against the unmounted p1. A second copy and its checksum manifest
+are stored privately under ignored
+`provisioning/local/backups/bootloader-20261022.*` on the workstation. This
+backup is independent of both A/B roots and remains available even if U-Boot
+cannot start. The helper
+`scripts/restore-picoos-boot-partition.sh IMAGE MANIFEST WHOLE_SD_DEVICE`
+restores only the exact 64 MiB p1 after validating the four-partition layout,
+manifest, filesystem and unmounted target; it demands typing the exact disk
+path and read-back-verifies the restored partition. Copy the backup image and
+manifest off the SD card before using the helper, so restoration does not read
+its source from the disk being written.
+
+Only `u-boot.bin` was atomically replaced on p1; the existing firmware,
+`config.txt`, stored U-Boot environment, both roots and `/data` were not
+written. The config hash stayed
+`38b5e3d4d5aa4087efd1e26f7572ba36c98a8c83a86d857ca38ae75812d5d2e6`, and
+the known firmware UART setting remained unchanged. After reboot, the new
+U-Boot successfully started confirmed A with the original persisted
+key-only SSH identity. A remained confirmed with watchdog active at 15 seconds
+and nowayout enabled; persistent diagnostics, WLAN and the original 15
+`/data` files worked, all ten WLAN-bound router pings succeeded, and p1 passed
+`fsck.vfat`. The binary hash was verified from p1 after boot. This proves the
+new bootloader boots; no HDMI capture was available to independently inspect
+the physical display. **Current test-card state is confirmed A.**
 
 ### A/B development implementation
 
@@ -649,11 +689,10 @@ All 12 data file hashes matched the original pre-A/B backup.
 This first installation test ended in confirmed B. Power cuts, arbitrary
 kernel hangs and application readiness remain untested.
 
-Actions run 39790580285 (`0afcfac`) successfully built the corrected default
-selector and text-only U-Boot. The downloaded image also passed the local
-UART/slot-overlay, redundant-environment, layout and FAT32 tests. The new
-shared U-Boot binary has **not** been installed on this card; the root-only
-hardware update above neither tests its display nor replaces p1.
+Actions run 39790580285 (`0afcfac`) had earlier built the corrected default
+selector and text-only U-Boot. Run 39805575018 includes the diagnostic
+persistence code and is the artifact from which the verified U-Boot binary
+above was installed.
 
 #### Reverse signed SWUpdate installation (2026-10-22)
 

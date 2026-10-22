@@ -163,7 +163,8 @@ B nach A ausdruecklich freigegeben und getestet: vollstaendiger 512-MiB-Readback
 vor Neustart wiederhergestellter Diagnosezugang und automatische Bestaetigung
 von A. A blieb laenger als 90 Sekunden im selben Boot mit aktivem Watchdog,
 WLAN und SSH erreichbar. Alle 12 Nutzdateien und die gemeinsame Bootpartition
-blieben hashgleich. Aktuell ist A bestaetigt; Zaehler und Upgrade-Marker sind 0.
+blieben hashgleich. Nach diesem Test war A bestaetigt; Zaehler und Upgrade-Marker
+waren 0.
 Beliebige Kernel-Haenger und Stromausfalltests sind noch offen.
 CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
 ohne eigenes Logo/Splash gebaut; das heruntergeladene Image ist geprueft,
@@ -187,6 +188,20 @@ Die einmalige Offline-Provisionierung importiert nur bei fehlendem Daten-
 Store; bestehende persistente Einstellungen haben Vorrang.
 Das ist kein allgemeiner Import beliebiger Root-Konfiguration und aktiviert
 nicht automatisch den Basis-Public-Key als Root-Schluessel.
+
+Der anschliessende Hardwaretest ist bestanden: Die vorhandenen Diagnose-
+Schluessel wurden ausdruecklich auf `/data` aktiviert und alle 15 Dateien
+privat gesichert und verifiziert. Lokal aus dem letzten CI-Root und den neuen Overlay-Dateien zusammengesetzte,
+gepruefte und signierte Root-Testpakete wurden per echtem SWUpdate sowohl nach
+B als auch mit der korrigierten Hostschluessel-Erzeugung nach A installiert.
+Beide Rohimages wurden vollstaendig zurueckgelesen; beide Slots wurden danach
+nur lesend kontrolliert, nicht mit privaten Dateien nachprovisioniert.
+Nach Neustart richteten sie SSH/Ethernet selbst aus den persistenten Daten ein
+und bestaetigten sich. Hostidentitaet, Schluessel-only-Anmeldung, RAM-Rechte
+0600, Watchdog, WLAN sowie unveraenderte 15 Dateien und p1 sind nachgewiesen.
+Aktuell ist A bestaetigt, B bleibt als vorheriger persistenter Root-Slot
+erhalten. Der vollstaendige CI-Neubau und allgemeine System-/pico-Konfiguration
+sind von diesen lokalen Root-Tests zu unterscheiden.
 
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:

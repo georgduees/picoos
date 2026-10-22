@@ -420,6 +420,45 @@ Run `bash scripts/test-diagnostics-runtime.sh` for lifecycle and failure tests;
 the image tests verify installed scripts/modes and absence of private
 diagnostic material or activation in public artifacts.
 
+#### Persistence hardware verification (2026-10-22)
+
+On confirmed A, the helper was explicitly enabled with the existing working
+authorization and Ed25519 host key. The original 12 data files were unchanged;
+only the three documented persistence files were added. A private backup of
+all 15 files was extracted and verified against before/after SHA-256 manifests
+on the host before the slot update.
+
+For hardware coverage, a **locally assembled public root image**, not a CI
+artifact, was derived from the untouched `0afcfac` CI root by installing the
+changed overlay files with `debugfs`. Ownership/modes, filesystem checks,
+exact installed-file comparisons, image/layout tests and native SWUpdate
+checks passed. The local test packages contain no private configuration or
+root activation. The full Buildroot CI run remains separate.
+
+The first package (`9ac6e25`) was installed to B. Check-only inspection and a
+full signed 512 MiB readback succeeded; then B autonomously loaded the
+persistent keys and confirmed itself, without root-slot provisioning. This
+first-boot check caught that Dropbear 2026.93 also leaves a generated `.pub`
+sidecar. The helper was corrected and verified with actual FAT32 host-key
+generation to leave exactly the intended three persistent files.
+
+The corrected final package (`9347660`) was then installed to A through the
+real CLI. An independent 512 MiB readback matched its signed root hash.
+A subsequent **read-only, no-journal-replay** inspection verified the exact
+new scripts, root ownership/modes, absent root `authorized_keys` and offline
+import marker, and the fresh Dropbear symlink. No private diagnostics were
+written into A after installation. After reboot, the prior host-key SSH
+identity worked; A confirmed itself and remained in the same boot beyond
+90 seconds with the watchdog active. The persistent and RAM directories were
+root:0700, RAM keys root:0600, and root authorization linked into RAM. Dropbear
+used `-s` and the explicit RAM host key without `-R`. A no-key login was
+rejected and the server advertised only `publickey`, not
+password/keyboard-interactive. WLAN authenticated, ten WLAN-bound router pings
+had no loss, all 15 stored data-file hashes matched the private pre-update
+backup, and shared p1 was unchanged. **Current test-card state is confirmed A**
+using persistent diagnostics; B is the preceding persistent-configuration
+root fallback. The new shared U-Boot binary was not installed.
+
 ### A/B development implementation
 
 This is a new layout with **A/B boots, three-attempt watchdog rollback and
@@ -639,7 +678,7 @@ and remained in the same boot beyond 90 seconds. The watchdog was active at
 15 seconds with nowayout enabled, original host-key SSH worked, WLAN
 authenticated and ten WLAN-bound router pings completed without loss.
 All 12 data hashes still matched the original backup and the shared p1 hash
-matched its pre-test value. **Current test-card state is confirmed A**, with
+matched its pre-test value. This reverse-update test ended in confirmed A, with
 `boot_slot=stable_slot=A`, `upgrade_available=0` and `bootcount=0`.
 Neither this test nor the first root update installed the new shared U-Boot.
 

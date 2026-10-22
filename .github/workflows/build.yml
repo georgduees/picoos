@@ -112,6 +112,9 @@ jobs:
           export PATH="${GITHUB_WORKSPACE}/output/host/bin:${GITHUB_WORKSPACE}/output/host/sbin:${PATH}"
           bash scripts/test-fat32-image.sh output/images
 
+      - name: Test Bluetooth runtime persistence
+        run: sh scripts/test-bluetooth-runtime.sh
+
       - name: Upload image
         uses: actions/upload-artifact@v4
         with:

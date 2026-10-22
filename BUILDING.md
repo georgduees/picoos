@@ -7,6 +7,24 @@ The board setup follows Buildroot's `raspberrypizero2w_defconfig` kernel and
 firmware choices, while retaining the ARMv6 external toolchain so the same
 userspace can later run on a Raspberry Pi Zero W.
 
+The PICO-8 `0.2.7` Raspberry Pi archive has separate runtime variants.
+The `pico8` ARMv6 binary expects legacy `libbcm_host.so`, which is not present
+in this image. `pico8_gpio` additionally requires `libwiringPi.so`.
+The 64-bit `pico8_64` is not appropriate for this 32-bit userspace.
+`pico8_dyn` is the matching ARM hard-float variant but needs `libSDL2-2.0.so.0`.
+Buildroot now includes SDL2 for that runtime. The live framebuffer is
+`/dev/fb0`. BlueZ, its `bluetoothctl` client, Bluetooth HID/HOG profiles, and
+the Linux joystick test utilities are included for Bluetooth keyboards, mice,
+and controllers. The kernel loads its Bluetooth UART and HID/input modules at
+boot. BlueZ pairing state is stored under `/data/bluetooth`, so paired devices
+survive A/B slot updates. The current hardware has not yet enumerated an HCI
+controller or tested a paired device; no attached ALSA audio device has been
+verified either.
+The local PICO-8 binary remains user-supplied data and is never copied into
+public images. Launching the emulator, validating rendered HDMI output/audio,
+checking SDL2 gamepad input and Bluetooth pairing/audio, and checking
+performance remain separate hardware tasks.
+
 Configure and build from this project directory:
 
 ```sh

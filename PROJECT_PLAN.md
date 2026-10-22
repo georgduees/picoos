@@ -98,10 +98,13 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   den verfuegbaren Rest der SD-Karte ist weiterhin geplant, nicht implementiert.
 - Das Image soll die benoetigten Laufzeitvoraussetzungen fuer PICO-8
   bereitstellen, obwohl PICO-8-Binary und Cartridges nicht mitgeliefert
-  werden. Die konkreten Bibliotheken und Audio-/Grafik-Schnittstellen muessen
-  anhand der eingesetzten PICO-8-Version festgelegt werden. Insbesondere die
-  Kompatibilitaet des vom Nutzer bereitgestellten PICO-8-Binaries und die
-  Leistung auf dem aelteren Zero W muessen praktisch geprueft werden.
+  werden. Fuer die vorliegende Version 0.2.7 benoetigt `pico8_dyn` SDL2;
+  SDL2 wurde deshalb zur Buildroot-Konfiguration hinzugefuegt. Die
+  Kompatibilitaet der SDL2-Grafik-/Audio-/Eingabe-Backends, der HDMI-Ausgabe
+  und die Leistung auf Zero 2 W und dem aelteren Zero W muessen praktisch
+  geprueft werden. Das klassische `pico8` benoetigt das im Image fehlende
+  Legacy-`libbcm_host.so`, `pico8_gpio` zusaetzlich WiringPi, und die
+  64-Bit-Variante passt nicht zum 32-Bit-Userspace.
 - Als lokale Installationsquelle liegt `pico8/pico-8_0.2.7_raspi.zip` vor.
   Das Archiv enthaelt 32-Bit-ARM-Varianten (`pico8`, `pico8_dyn`,
   `pico8_gpio`) und eine 64-Bit-AArch64-Variante (`pico8_64`). Das zum
@@ -110,6 +113,12 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Buildroot-Systemimages.
 - Bluetooth soll Audioausgabe sowie das Koppeln und Verwenden von Gamepads,
   Joysticks und vergleichbaren Eingabegeraeten unterstuetzen.
+- Fuer die Eingabeunterstuetzung sind BlueZ mit `bluetoothctl`, HID/HOG,
+  Kernel-HCI-UART-/HID-/evdev-/joydev-Treiber und SDL2-Joystick-Unterstuetzung
+  im Zero-2-W-Build aktiviert. Die BlueZ-Pairings werden auf der FAT32-
+  Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.
+  Controller-Erkennung, echtes Pairing und SDL-Eingaben sind noch am Geraet zu
+  testen; Bluetooth-Audio braucht noch einen festgelegten ALSA-/Audio-Backendpfad.
 - Fuer analoge Ausgabe sind Composite-Video (Cinch/RCA) und Audio vorgesehen.
   Die Signale koennen bei Bedarf an den Loetpads/Testpunkten des Raspberry Pi
   Zero abgegriffen werden; eine Nutzung der GPIO-Stiftleiste ist nicht

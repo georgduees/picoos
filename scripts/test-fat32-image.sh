@@ -42,7 +42,16 @@ fi
 debugfs -R "dump /boot/overlays/miniuart-bt.dtbo $work/slot-miniuart-bt.dtbo" "$work/images/rootfs.ext4"
 test -s "$work/slot-miniuart-bt.dtbo"
 cmp "$work/slot-miniuart-bt.dtbo" "$work/images/rpi-firmware/overlays/miniuart-bt.dtbo"
-for path in usr/sbin/picoos-diagnostics etc/init.d/S30picoos-diagnostics \
+debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
+    > "$work/sdl2-runtime-link" 2>&1
+grep -q 'Type:[[:space:]]*symlink' "$work/sdl2-runtime-link"
+grep -q 'Fast link dest:' "$work/sdl2-runtime-link"
+for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest; do
+    debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
+        grep -Eq 'Mode:[[:space:]]+0755'
+done
+for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-bluetooth \
+    etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-bluetooth-storage \
     etc/init.d/S50dropbear etc/init.d/S99picoos-health etc/network/interfaces \
     etc/avahi/avahi-daemon.conf; do
     debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
@@ -56,6 +65,10 @@ for path in usr/sbin/picoos-diagnostics etc/init.d/S30picoos-diagnostics \
             ;;
     esac
 done
+debugfs -R "dump /etc/modules-load.d/bluetooth.conf $work/bluetooth-modules" \
+    "$work/images/rootfs.ext4"
+cmp "$work/bluetooth-modules" \
+    "$project_dir/br2-external/board/zero2w/overlay/etc/modules-load.d/bluetooth.conf"
 for path in /etc/picoos-diagnostics-import /root/.ssh/authorized_keys \
     /etc/dropbear/dropbear_ed25519_host_key; do
     debugfs -R "dump $path $work/forbidden-file" "$work/images/rootfs.ext4" 2>/dev/null

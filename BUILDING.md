@@ -16,10 +16,12 @@ Buildroot now includes SDL2 for that runtime. The live framebuffer is
 `/dev/fb0`. BlueZ, its `bluetoothctl` client, Bluetooth HID/HOG profiles, and
 the Linux joystick test utilities are included for Bluetooth keyboards, mice,
 and controllers. The kernel loads its Bluetooth UART and HID/input modules at
-boot. BlueZ pairing state is stored under `/data/bluetooth`, so paired devices
-survive A/B slot updates. The current hardware has not yet enumerated an HCI
-controller or tested a paired device; no attached ALSA audio device has been
-verified either.
+boot. The mini-UART is UART line 1, so the kernel reserves four 8250 UART
+lines; without this, its default single line rejects the internal Bluetooth
+controller. BlueZ pairing state is stored under `/data/bluetooth`, so paired
+devices survive A/B slot updates. The current hardware has not yet enumerated
+an HCI controller or tested a paired device; no attached ALSA audio device has
+been verified either.
 The local PICO-8 binary remains user-supplied data and is never copied into
 public images. Launching the emulator, validating rendered HDMI output/audio,
 checking SDL2 gamepad input and Bluetooth pairing/audio, and checking

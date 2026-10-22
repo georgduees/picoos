@@ -115,7 +115,9 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Joysticks und vergleichbaren Eingabegeraeten unterstuetzen.
 - Fuer die Eingabeunterstuetzung sind BlueZ mit `bluetoothctl`, HID/HOG,
   Kernel-HCI-UART-/HID-/evdev-/joydev-Treiber und SDL2-Joystick-Unterstuetzung
-  im Zero-2-W-Build aktiviert. Die BlueZ-Pairings werden auf der FAT32-
+  im Zero-2-W-Build aktiviert. Der Kernel reserviert vier 8250-UART-Linien,
+  damit die interne Bluetooth-Mini-UART auf Linie 1 registriert werden kann.
+  Die BlueZ-Pairings werden auf der FAT32-
   Datenpartition gespeichert, damit sie A/B-Systemupdates ueberleben.
   Controller-Erkennung, echtes Pairing und SDL-Eingaben sind noch am Geraet zu
   testen; Bluetooth-Audio braucht noch einen festgelegten ALSA-/Audio-Backendpfad.

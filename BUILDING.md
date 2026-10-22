@@ -276,9 +276,9 @@ They must be copied locally into the data partition after flashing. Automatic
 partition/filesystem expansion to the SD card's remaining space is still
 pending. Reflashing a complete `sdcard.img` overwrites the data partition as
 well: back up provisioned data first. Future A/B updates must preserve it.
-There is no in-place ext4-to-FAT32 migration. The running ext4 test card is
-not changed by this source update; moving it to FAT32 requires an explicit
-backup, reflash and restore/provisioning step.
+There is no in-place ext4-to-FAT32 migration. Updating the source does not
+convert an existing card; moving it to FAT32 requires an explicit backup,
+reflash and restore/provisioning step.
 
 ### FAT32 validation
 
@@ -301,8 +301,20 @@ On 2026-10-22, an isolated FAT32 loop image was also tested on the Zero 2 W,
 without formatting or replacing the real `/data` partition. Root-only 0700
 mount permissions, execution of a test script from FAT32, a mode-0600 WLAN
 RAM copy and successful WPA authentication were verified. Normal WLAN was
-restored afterward; the live data partition remains ext4. A complete boot
-from a FAT32-data SD image still needs separate hardware verification.
+restored afterward; at that point the live data partition still used ext4.
+
+The complete FAT32 image from Actions run 39758758648 (commit `de51917`) was
+then flashed and booted on the Zero 2 W on 2026-10-22. `/dev/mmcblk0p3` mounted
+as writable vfat with root-only masks. Automatic WLAN authentication and DHCP
+worked (`192.168.0.98`) with power saving enabled; Ethernet and key-only
+diagnostic SSH also worked (`192.168.0.246`). The active supplicant used
+`/run/picoos-wifi/wpa_supplicant.conf` (root:0600), byte-identical to the FAT32
+source (synthetic root:0700). All 11 provisioned user files matched the verified
+pre-migration backup by SHA-256; only the intentionally updated inactive WLAN
+example was excluded from that comparison. Twenty router pings bound to WLAN
+completed without loss, with no FAT corruption or firmware-crash message in
+the checked boot log. PICO-8 runtime execution and full-card expansion remain
+separate, unverified work.
 
 ### Flash and provision locally
 

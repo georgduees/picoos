@@ -362,6 +362,64 @@ not yet verify runtime libraries or activate the `pico` SSH account. The helper
 never uploads private files to GitHub and refuses older two-/three-partition
 images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 
+### Opt-in persistent bring-up diagnostics
+
+The regular non-root `pico` account remains separate work. For bring-up only,
+`picoos-diagnostics` provides explicitly enabled **key-only root SSH** and
+Ethernet DHCP across root-slot replacements. It does not import arbitrary
+`/etc` files or execute configuration from the data partition.
+Public images contain neither diagnostic keys nor an activation marker;
+the base public key is **not automatically granted root access**.
+Without an opt-in, the diagnostic Dropbear listener stays off.
+
+From a local root console, explicitly grant access to the chosen plain
+Ed25519 public key:
+
+```sh
+picoos-diagnostics enable /data/ssh/base-key.pub
+reboot
+```
+
+The first command generates a persistent Ed25519 host key. To preserve the
+identity of an already provisioned diagnostic system, supply its existing key:
+
+```sh
+picoos-diagnostics enable /root/.ssh/authorized_keys \
+  /etc/dropbear/dropbear_ed25519_host_key
+```
+
+Only `authorized_keys`, `dropbear_ed25519_host_key` and the versioned `enabled`
+marker are stored in `/data/diagnostics`. This directory is root-only on Linux,
+but FAT32 is **not encrypted**: physical card access exposes the private host
+key, just as it exposes WLAN credentials. Keep all data backups private.
+The marker is published only after the keys have been validated and flushed.
+An existing store is not overwritten by another key-provisioning command.
+
+Before networking, `S30picoos-diagnostics` validates the mounted FAT32 p4,
+ownership, synthetic/private modes, file types, format and Ed25519 keys.
+It copies keys into a mode-0700 RAM directory with mode-0600 key files, points
+root's `authorized_keys` there and prepares an ifup source for Ethernet DHCP.
+The ASIX drivers load only when diagnostics are enabled; Avahi permits WLAN
+and Ethernet. `S50dropbear` uses fixed key-only arguments and the explicit RAM
+host key, never automatic fallback host-key generation or shell-sourced
+persistent options. The local boot health check requires the opted-in
+listener to be prepared and running before confirming a trial slot.
+
+`picoos-diagnostics disable` removes the activation marker and stops the
+listener, retaining the stored keys. Existing SSH sessions and Ethernet
+configuration may remain until reboot. Re-enable a retained store with
+`picoos-diagnostics enable` without arguments. Key-file edits require
+preparation again (normally a reboot); malformed enabled configuration fails
+closed and prevents trial confirmation.
+
+The offline Ethernet helper requests a one-time import only when the new
+helper is installed in the root image. On first boot the explicit local
+diagnostic keys are imported if no store exists; an existing persistent store
+remains authoritative. Older images retain the legacy root-local setup.
+Run `bash scripts/test-diagnostics-runtime.sh` for lifecycle and failure tests;
+the image tests verify installed scripts/modes and absence of private
+diagnostic material or activation in public artifacts.
+
 ### A/B development implementation
 
 This is a new layout with **A/B boots, three-attempt watchdog rollback and
@@ -386,9 +444,11 @@ The firmware's shared DTB is needed to bring up U-Boot. Keep the firmware UART
 in its default mini-UART configuration with `enable_uart=1`: do **not** apply
 `miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build. U-Boot applies
 `miniuart-bt.dtbo` only to the **slot-local Linux DTB**, along with its Raspberry
-Pi firmware fixups. Root filesystems remain **read/write** for this bring-up;
-read-only roots and persistent SSH host keys/account configuration are not yet
-implemented. Manual changes confined to the old root do not follow a slot update.
+Pi firmware fixups. Root filesystems remain **read/write** for this bring-up.
+The explicit diagnostic opt-in above persists its keys and Ethernet policy;
+read-only roots, the regular `pico` account and general system-configuration
+persistence are not implemented. Other changes confined to the old root do
+not follow a slot update.
 The shared Pi firmware and U-Boot are not A/B-protected or replaced by SWUpdate.
 
 Only a root CLI starts SWUpdate; there is no auto-started web upload or IPC

@@ -7,3 +7,5 @@ iface wlan0 inet dhcp
     wait-delay 10
     pre-up /etc/network/pico8-wifi start
     post-down /etc/network/pico8-wifi stop
+
+source /run/picoos-diagnostics/interfaces

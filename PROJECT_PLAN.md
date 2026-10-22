@@ -169,6 +169,25 @@ CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
 ohne eigenes Logo/Splash gebaut; das heruntergeladene Image ist geprueft,
 der gemeinsame Bootloader auf der Testkarte aber noch nicht ersetzt.
 
+**Explizite Diagnosepersistenz:**
+
+Auf Nutzerwunsch bleibt der regulaere `pico`-Account ein eigener Schritt.
+Der temporaere Root-Diagnosezugang ist stattdessen ausdruecklich aktivierbar:
+`picoos-diagnostics enable PUBLIC_KEY [HOST_KEY]` speichert nur Ed25519-
+Autorisierungsschluessel, Hostschluessel und einen versionierten Freigabemarker
+unter `/data/diagnostics`. Ohne Freigabe startet kein Root-SSH-Listener.
+Die FAT32-Dateien sind unter Linux root-exklusiv, aber physisch unverschluesselt
+lesbar. Private Daten bleiben ausserhalb von Git und oeffentlichen Images.
+
+Vor Netzwerkstart werden die Schluessel geprueft und mit echten 0600-Rechten
+ins RAM kopiert. Ethernet-DHCP/ASIX und Avahi passen zum Diagnosezugang;
+Dropbear nutzt feste Schluessel-only-Argumente. Bei aktivierter Diagnose
+verlangt der lokale Boot-Health-Check auch den laufenden SSH-Dienst.
+Die einmalige Offline-Provisionierung importiert nur bei fehlendem Daten-
+Store; bestehende persistente Einstellungen haben Vorrang.
+Das ist kein allgemeiner Import beliebiger Root-Konfiguration und aktiviert
+nicht automatisch den Basis-Public-Key als Root-Schluessel.
+
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:
 

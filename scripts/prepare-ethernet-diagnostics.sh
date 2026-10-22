@@ -46,6 +46,10 @@ mounted=yes
 [ -f "$work/etc/network/pico8-wifi" ] || fail "Not the expected PicoOS rootfs."
 [ -f "$work/usr/sbin/dropbear" ] && [ -s "$work/usr/sbin/dropbear" ] ||
     fail "Dropbear is missing or empty."
+if [ -x "$work/usr/sbin/picoos-diagnostics" ]; then
+    awk '/^[[:space:]]*(#|$)/ { next } $1 != "ssh-ed25519" { exit 1 } { count++ } END { if (!count) exit 1 }' "$key" ||
+        fail "Persistent diagnostics require plain Ed25519 public keys without options."
+fi
 dropbear_mode=$(stat -c %a "$work/usr/sbin/dropbear")
 (( (8#$dropbear_mode & 0111) != 0 )) || fail "Dropbear has no executable permission bits."
 [ -d "$work/root" ] && [ ! -L "$work/root" ] || fail "Unexpected root home."
@@ -69,7 +73,9 @@ for path in etc/default/dropbear etc/modules-load.d/ethernet.conf; do
 done
 tar -C "$work" -cf "$backup" "${paths[@]}"
 chmod 600 "$backup"
-printf '\nauto eth0\niface eth0 inet dhcp\n    hostname pico8\n' >> "$work/etc/network/interfaces"
+if [ ! -x "$work/usr/sbin/picoos-diagnostics" ]; then
+    printf '\nauto eth0\niface eth0 inet dhcp\n    hostname pico8\n' >> "$work/etc/network/interfaces"
+fi
 install -d -m 755 "$work/etc/modules-load.d" "$work/etc/default"
 printf 'asix\nax88179_178a\n' > "$work/etc/modules-load.d/ethernet.conf"
 printf 'DROPBEAR_ARGS="-s"\n' > "$work/etc/default/dropbear"
@@ -83,6 +89,10 @@ if [ -n "$host_key" ]; then
     install -d -m 700 "$work/etc/dropbear"
     install -m 600 "$host_key" "$work/etc/dropbear/dropbear_ed25519_host_key"
     cmp "$host_key" "$work/etc/dropbear/dropbear_ed25519_host_key"
+fi
+if [ -x "$work/usr/sbin/picoos-diagnostics" ]; then
+    printf 'picoos-diagnostics-v1\n' > "$work/etc/picoos-diagnostics-import"
+    chmod 600 "$work/etc/picoos-diagnostics-import"
 fi
 sync
 umount "$work"

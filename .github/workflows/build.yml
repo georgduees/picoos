@@ -40,6 +40,9 @@ jobs:
       - name: Test A/B slot guards
         run: bash scripts/test-ab-runtime.sh
 
+      - name: Test opt-in diagnostic persistence
+        run: bash scripts/test-diagnostics-runtime.sh
+
       - name: Identify compatible build environment
         id: environment
         run: |

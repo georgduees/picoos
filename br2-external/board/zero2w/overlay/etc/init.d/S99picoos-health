@@ -18,6 +18,7 @@ case "${1:-}" in
             [ -s /etc/swupdate/public-key.pub ] && [ -c /dev/watchdog ] ||
             fail "local boot assets or watchdog"
         [ "$(fw_printenv -n boot_slot)" = "$slot" ] || fail "bootloader slot identity"
+        /usr/sbin/picoos-diagnostics check || fail "opt-in diagnostic access"
         start-stop-daemon -S -b -m -p /run/picoos-watchdog.pid \
             -x /sbin/watchdog -- -F -t 5 -T 15 /dev/watchdog ||
             fail "watchdog start"

@@ -42,6 +42,28 @@ fi
 debugfs -R "dump /boot/overlays/miniuart-bt.dtbo $work/slot-miniuart-bt.dtbo" "$work/images/rootfs.ext4"
 test -s "$work/slot-miniuart-bt.dtbo"
 cmp "$work/slot-miniuart-bt.dtbo" "$work/images/rpi-firmware/overlays/miniuart-bt.dtbo"
+for path in usr/sbin/picoos-diagnostics etc/init.d/S30picoos-diagnostics \
+    etc/init.d/S50dropbear etc/init.d/S99picoos-health etc/network/interfaces \
+    etc/avahi/avahi-daemon.conf; do
+    debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
+    test -s "$work/installed-file"
+    cmp "$work/installed-file" "$project_dir/br2-external/board/zero2w/overlay/$path"
+    rm "$work/installed-file"
+    case "$path" in
+        usr/sbin/*|etc/init.d/*)
+            debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
+                grep -Eq 'Mode:[[:space:]]+0755'
+            ;;
+    esac
+done
+for path in /etc/picoos-diagnostics-import /root/.ssh/authorized_keys \
+    /etc/dropbear/dropbear_ed25519_host_key; do
+    debugfs -R "dump $path $work/forbidden-file" "$work/images/rootfs.ext4" 2>/dev/null
+    if [ -e "$work/forbidden-file" ]; then
+        echo "Local diagnostic credentials or activation unexpectedly included: $path" >&2
+        exit 1
+    fi
+done
 dd if="$work/images/sdcard.img" of="$work/environment-a" bs=65536 skip=4 count=1 status=none
 dd if="$work/images/sdcard.img" of="$work/environment-b" bs=65536 skip=6 count=1 status=none
 cmp "$work/images/uboot-env.bin" "$work/environment-a"
@@ -53,6 +75,10 @@ cmp "$work/public-key" "$project_dir/provisioning/data/ssh/base-key.pub"
 mdir -i "$work/images/data.vfat" ::/carts ::/pico8
 if mdir -i "$work/images/data.vfat" ::/network/wpa_supplicant.conf >/dev/null 2>&1; then
     echo "Private WLAN configuration unexpectedly included in image." >&2
+    exit 1
+fi
+if mdir -i "$work/images/data.vfat" ::/diagnostics >/dev/null 2>&1; then
+    echo "Private diagnostic persistence unexpectedly included in public data image." >&2
     exit 1
 fi
 

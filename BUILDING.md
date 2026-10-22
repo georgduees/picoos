@@ -365,8 +365,8 @@ images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 ### A/B development implementation
 
 This is a new layout with **A/B boots, three-attempt watchdog rollback and
-signed A-to-B SWUpdate installation verified**. Reverse-direction SWUpdate,
-arbitrary kernel-hang and power-loss tests remain pending.
+signed SWUpdate installations in both directions verified**.
+Arbitrary kernel-hang and power-loss tests remain pending.
 It is not an in-place upgrade of a three-partition card. Back up `/data`
 before an explicitly approved reflash. Do not treat this as fully qualified
 update recovery until the hardware test matrix below passes.
@@ -547,14 +547,41 @@ the trial counters and remained in the same boot beyond 90 seconds with the
 15-second nowayout watchdog active. Original host-key SSH, authenticated WLAN
 and ten router pings explicitly bound to WLAN succeeded without loss.
 All 12 data file hashes matched the original pre-A/B backup.
-Current test-card state is confirmed B. Actual reverse B-to-A SWUpdate,
-power cuts, arbitrary kernel hangs and application readiness remain untested.
+This first installation test ended in confirmed B. Power cuts, arbitrary
+kernel hangs and application readiness remain untested.
 
 Actions run 39790580285 (`0afcfac`) successfully built the corrected default
 selector and text-only U-Boot. The downloaded image also passed the local
 UART/slot-overlay, redundant-environment, layout and FAT32 tests. The new
 shared U-Boot binary has **not** been installed on this card; the root-only
 hardware update above neither tests its display nor replaces p1.
+
+#### Reverse signed SWUpdate installation (2026-10-22)
+
+With explicit approval, the same signed development package was then installed
+through `picoos-update` from confirmed B to inactive A. The private diagnostics
+were first backed up on B, and all 12 data hashes matched the original backup.
+The signed guards and bootloader handler completed successfully; an independent
+512 MiB readback of p2 matched the same original root image hash listed above.
+Before reboot, `boot_slot=A`, `stable_slot=B`, `upgrade_available=1` and
+`bootcount=0` preserved B as fallback. The shared selector, p1 and B boot assets
+were unchanged.
+
+As in the first test, only the approved local diagnostics were restored into
+the newly written A **after** raw-image verification. Files were compared,
+private key/directory modes and the executable health check verified, and A
+unmounted. The staged package was removed from B; its private diagnostic
+backup was retained. This is still test-only provisioning, not update-safe
+configuration persistence.
+
+A booted p2 under a new kernel boot identity, automatically confirmed itself
+and remained in the same boot beyond 90 seconds. The watchdog was active at
+15 seconds with nowayout enabled, original host-key SSH worked, WLAN
+authenticated and ten WLAN-bound router pings completed without loss.
+All 12 data hashes still matched the original backup and the shared p1 hash
+matched its pre-test value. **Current test-card state is confirmed A**, with
+`boot_slot=stable_slot=A`, `upgrade_available=0` and `bootcount=0`.
+Neither this test nor the first root update installed the new shared U-Boot.
 
 Additional host tests:
 

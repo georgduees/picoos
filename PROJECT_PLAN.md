@@ -137,7 +137,7 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
 
-## A/B-Layout (A/B-Starts, Watchdog-Rollback und SWUpdate A-nach-B getestet)
+## A/B-Layout (A/B-Starts, Watchdog-Rollback und SWUpdate in beide Richtungen getestet)
 
 Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
 Die bisherige Drei-Partitionen-Karte hatte 32 MiB Boot, einen
@@ -158,9 +158,14 @@ SWUpdate auf dem Pi abgewiesen. Der private Ethernet-/Schluessel-SSH-Zugang
 wurde nach dem Raw-Schreiben ausdruecklich als Testprovisionierung in B
 wiederhergestellt; dauerhafte Konfigurationspersistenz ist damit nicht geloest.
 B lief danach laenger als 90 Sekunden mit aktivem Watchdog, WLAN und
-unveraenderten 12 Nutzdateien. Aktuell ist B bestaetigt.
-SWUpdate in Gegenrichtung, beliebige Kernel-Haenger und Stromausfalltests
-sind noch offen. CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
+unveraenderten 12 Nutzdateien. Anschliessend wurde auch die echte Gegenrichtung
+B nach A ausdruecklich freigegeben und getestet: vollstaendiger 512-MiB-Readback,
+vor Neustart wiederhergestellter Diagnosezugang und automatische Bestaetigung
+von A. A blieb laenger als 90 Sekunden im selben Boot mit aktivem Watchdog,
+WLAN und SSH erreichbar. Alle 12 Nutzdateien und die gemeinsame Bootpartition
+blieben hashgleich. Aktuell ist A bestaetigt; Zaehler und Upgrade-Marker sind 0.
+Beliebige Kernel-Haenger und Stromausfalltests sind noch offen.
+CI-Lauf 39790580285 hat den korrigierten Selektor und U-Boot
 ohne eigenes Logo/Splash gebaut; das heruntergeladene Image ist geprueft,
 der gemeinsame Bootloader auf der Testkarte aber noch nicht ersetzt.
 

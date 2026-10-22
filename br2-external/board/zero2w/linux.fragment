@@ -2,7 +2,11 @@
 CONFIG_LOGO=y
 CONFIG_LOGO_LINUX_CLUT224=y
 
-# Storage/filesystems: SD card, ext4 system/data partitions and USB mass storage.
+# Storage/filesystems: SD card, ext4 system, FAT32 data and USB mass storage.
+CONFIG_VFAT_FS=y
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_NLS_UTF8=y
 # No RAID, SATA, network filesystems or alternative filesystem stacks.
 # CONFIG_ATA is not set
 # CONFIG_MD is not set

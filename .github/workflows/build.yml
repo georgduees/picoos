@@ -31,8 +31,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            bc build-essential ccache curl file libncurses-dev \
+            bc build-essential ccache curl fdisk file libncurses-dev \
             python3 rsync unzip wget
+
+      - name: Test WLAN credential handling
+        run: bash scripts/test-wifi-runtime.sh
 
       - name: Identify compatible build environment
         id: environment
@@ -97,6 +100,11 @@ jobs:
           if [ -x output/host/bin/ccache ]; then
             CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache" output/host/bin/ccache --show-stats
           fi
+
+      - name: Test FAT32 image and provisioning checks
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/output/host/bin:${GITHUB_WORKSPACE}/output/host/sbin:${PATH}"
+          bash scripts/test-fat32-image.sh output/images
 
       - name: Upload image
         uses: actions/upload-artifact@v4

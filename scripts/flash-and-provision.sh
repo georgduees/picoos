@@ -7,13 +7,37 @@ fail() {
     exit 1
 }
 
+validate_data_image() {
+    local image=$1 partitions data_entry data_start data_offset
+    partitions=$(sfdisk --dump "$image") || fail "Could not read image partition table."
+    [ "$(printf '%s\n' "$partitions" | awk '/^label:/ { print $2 }')" = dos ] &&
+        [ "$(printf '%s\n' "$partitions" | awk '/^sector-size:/ { print $2 }')" = 512 ] ||
+        fail "Expected a DOS partition table with 512-byte sectors."
+    [ "$(printf '%s\n' "$partitions" | grep -c ' : start=')" -eq 3 ] ||
+        fail "Expected an image with exactly three partitions (boot, rootfs, data)."
+    data_entry=$(printf '%s\n' "$partitions" | awk '/ : start=/ { n++; if (n == 3) print }')
+    printf '%s\n' "$data_entry" | grep -Eq 'type=(0?[cC])([,[:space:]]|$)' ||
+        fail "Expected a FAT32 LBA data partition (type 0x0C)."
+    data_start=$(printf '%s\n' "$data_entry" | awk -F 'start=' '{ split($2, fields, ","); gsub(/[[:space:]]/, "", fields[1]); print fields[1] }')
+    [[ "$data_start" =~ ^[0-9]+$ ]] || fail "Invalid data partition offset."
+    data_offset=$((data_start * 512))
+    [ "$(blkid -p -O "$data_offset" -s TYPE -o value "$image")" = vfat ] &&
+        [ "$(blkid -p -O "$data_offset" -s VERSION -o value "$image")" = FAT32 ] &&
+        [ "$(blkid -p -O "$data_offset" -s LABEL -o value "$image")" = PICOOS-DATA ] ||
+        fail "Image data filesystem must be FAT32 with label PICOOS-DATA."
+}
+
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return
+fi
+
 if [ "$#" -ne 2 ]; then
     echo "Usage: sudo bash $0 IMAGE WHOLE_SD_DEVICE" >&2
     exit 1
 fi
 [ "$EUID" -eq 0 ] || fail "Run this script with sudo."
 for tool in lsblk readlink stat dd cmp blockdev udevadm mount umount mountpoint \
-    unzip install find sync sfdisk blkid awk grep; do
+    unzip cp find sync sfdisk blkid awk grep; do
     command -v "$tool" >/dev/null || fail "Required tool not found: $tool"
 done
 
@@ -37,10 +61,7 @@ fi
 [ -s "$wifi" ] || fail "Run bash scripts/prepare-wifi.sh first."
 [ -s "$key" ] || fail "Missing public SSH key: $key"
 
-# Refuse old two-partition images before overwriting the card.
-partitions=$(sfdisk --dump "$image")
-[ "$(printf '%s\n' "$partitions" | grep -c ' : start=')" -eq 3 ] ||
-    fail "Expected an image with exactly three partitions (boot, rootfs, data)."
+validate_data_image "$image"
 
 work=$(mktemp -d)
 mounted=no
@@ -83,28 +104,25 @@ blockdev --rereadpt "$device"
 udevadm settle
 data_partition=$(lsblk -nrpo NAME,PARTN "$device" | awk '$2 == 3 { print $1 }')
 [ -b "$data_partition" ] || fail "Third partition was not found."
-[ "$(blkid -s TYPE -o value "$data_partition")" = ext4 ] ||
-    fail "Third partition is not ext4."
-[ "$(blkid -s LABEL -o value "$data_partition")" = picoos-data ] ||
-    fail "Third partition does not have the expected picoos-data label."
+[ "$(blkid -p -s TYPE -o value "$data_partition")" = vfat ] &&
+    [ "$(blkid -p -s VERSION -o value "$data_partition")" = FAT32 ] ||
+    fail "Third partition is not FAT32."
+[ "$(blkid -p -s LABEL -o value "$data_partition")" = PICOOS-DATA ] ||
+    fail "Third partition does not have the expected PICOOS-DATA label."
 if lsblk -nr -o MOUNTPOINTS "$device" | grep -q '[^[:space:]]'; then
     fail "A partition was automounted after flashing. Unmount it before provisioning."
 fi
 
 mkdir "$work/data"
-mount -o nosuid,nodev,noexec "$data_partition" "$work/data"
+mount -t vfat -o nosuid,nodev,noexec,uid=0,gid=0,fmask=0177,dmask=0077,utf8=1 \
+    "$data_partition" "$work/data"
 mounted=yes
-install -d -o root -g root -m 700 "$work/data/network" "$work/data/ssh"
-install -d -o root -g root -m 755 "$work/data/pico8" "$work/data/carts"
-install -o root -g root -m 600 "$wifi" "$work/data/network/wpa_supplicant.conf"
-install -o root -g root -m 644 "$key" "$work/data/ssh/base-key.pub"
+mkdir -p "$work/data/network" "$work/data/ssh" "$work/data/pico8" "$work/data/carts"
+cp "$wifi" "$work/data/network/wpa_supplicant.conf"
+cp "$key" "$work/data/ssh/base-key.pub"
 for source in "$work/extracted/pico-8/"*; do
     [ -f "$source" ] || fail "Unexpected distribution entry: $source"
-    mode=644
-    case "$(basename "$source")" in
-        pico8|pico8_dyn|pico8_gpio|pico8_64) mode=755 ;;
-    esac
-    install -o root -g root -m "$mode" "$source" "$work/data/pico8/"
+    cp "$source" "$work/data/pico8/"
     cmp "$source" "$work/data/pico8/$(basename "$source")"
 done
 cmp "$wifi" "$work/data/network/wpa_supplicant.conf"

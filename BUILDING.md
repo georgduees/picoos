@@ -244,19 +244,65 @@ Five router pings through `eth0` completed without loss; Dropbear ran with
 password authentication disabled (`-s`). WLAN was down during this check;
 the intermittent WLAN fault is not resolved by this Ethernet result.
 
-The project post-image script creates a third, 256 MiB ext4 partition labelled
-`picoos-data`, mounted as `/data` from `/dev/mmcblk0p3` before init services.
+The project post-image script creates a third, 256 MiB **FAT32** partition labelled
+`PICOOS-DATA`, mounted as `/data` from `/dev/mmcblk0p3` before init services.
+It explicitly uses `mkfs.fat -F 32`, produces `data.vfat`, and marks the MBR
+partition as FAT32 LBA (0x0C); the system partition remains ext4.
 It seeds `/data/network/wpa_supplicant.conf.example`, `/data/pico8`,
-`/data/carts`, and `/data/ssh/base-key.pub`. Private directories are root-owned
-with mode 0700. The WLAN example is deliberately inactive; install the real
-configuration as `/data/network/wpa_supplicant.conf`, root-owned, mode 0600.
+`/data/carts`, and `/data/ssh/base-key.pub`. The WLAN example is deliberately
+inactive; install the real configuration as `/data/network/wpa_supplicant.conf`.
 The public SSH key is staged only; account/key activation is still pending.
+
+FAT32 supports access from Windows, macOS and Linux, but does not store Unix
+owners, permissions or symbolic links, and has a maximum file size of
+4 GiB minus one byte. Target mount options set `uid=0,gid=0,fmask=0077,dmask=0077`:
+all data files/directories appear root-owned and mode 0700. This keeps network
+credentials inaccessible to other Linux users while allowing root to execute
+PICO-8 binaries from `/data`. These permissions are synthetic, not per-file
+metadata; `chmod`/`chown` cannot be used to configure FAT permissions.
+The future non-root `pico` runtime needs a separate access policy.
+Physical access to the card bypasses these Linux mount restrictions, so treat
+the WLAN configuration as a secret on every desktop OS.
+
+Before starting wpa_supplicant, the WLAN helper copies the persistent file to
+`/run/picoos-wifi/wpa_supplicant.conf` with mode 0600 in a mode-0700 directory.
+The supplicant reads this RAM copy, removed on service stop or startup failure.
+To change credentials, edit the persistent file and restart WLAN; editing the
+RAM copy is not persistent. Old ext4 cards with root-owned mode-0600 credentials
+remain supported by the helper.
 
 PICO-8 binaries and private WLAN settings are not included in GitHub artifacts.
 They must be copied locally into the data partition after flashing. Automatic
 partition/filesystem expansion to the SD card's remaining space is still
 pending. Reflashing a complete `sdcard.img` overwrites the data partition as
 well: back up provisioned data first. Future A/B updates must preserve it.
+There is no in-place ext4-to-FAT32 migration. The running ext4 test card is
+not changed by this source update; moving it to FAT32 requires an explicit
+backup, reflash and restore/provisioning step.
+
+### FAT32 validation
+
+Run `bash scripts/test-wifi-runtime.sh` for the private RAM-copy lifecycle,
+permission checks and error handling. After building, run:
+
+```sh
+PATH="$PWD/output/host/bin:$PWD/output/host/sbin:$PATH" \
+  bash scripts/test-fat32-image.sh output/images
+```
+
+The image test regenerates an SD image in a temporary directory using existing
+kernel/rootfs/boot files. It checks FAT32 size/version/label, partition metadata,
+filesystem consistency, seeded files and absence of active WLAN credentials.
+It also checks that the provisioning validator rejects ext4 and FAT16 data
+filesystems even with a FAT32 MBR type. Both tests run in GitHub Actions before
+image upload.
+
+On 2026-10-22, an isolated FAT32 loop image was also tested on the Zero 2 W,
+without formatting or replacing the real `/data` partition. Root-only 0700
+mount permissions, execution of a test script from FAT32, a mode-0600 WLAN
+RAM copy and successful WPA authentication were verified. Normal WLAN was
+restored afterward; the live data partition remains ext4. A complete boot
+from a FAT32-data SD image still needs separate hardware verification.
 
 ### Flash and provision locally
 
@@ -270,23 +316,30 @@ sudo bash scripts/flash-and-provision.sh \
 
 The helper requires a three-partition image and a whole, unmounted target disk.
 It prints device identity and requires the resolved device path as confirmation
-before overwriting it. Back up existing data first. It verifies the flashed image,
-checks the data partition's ext4 type and `picoos-data` label, then installs:
+before overwriting it. Back up existing data first. Before writing, it validates
+the image's third partition type and actual FAT32 filesystem/version and label.
+After read-back verification it checks the card's FAT32 filesystem and
+`PICOOS-DATA` label, then installs:
 
 - The local `pico8/pico-8_0.2.7_raspi.zip` contents in `/data/pico8/`.
-- Private WLAN settings in `/data/network/wpa_supplicant.conf` (0600).
+- Private WLAN settings in `/data/network/wpa_supplicant.conf`.
 - The public base key in `/data/ssh/base-key.pub`.
 
-Copied file contents are compared, writes flushed, and the data partition
+The host mounts FAT32 with root-only masks and `noexec`, copies files without
+attempting Unix ownership/mode changes, and compares their contents.
+Writes are flushed, and the data partition
 unmounted before reporting success. PICO-8 is copied, not executed. This does
 not yet verify runtime libraries or activate the `pico` SSH account. The helper
-never uploads private files to GitHub and refuses the older two-partition images.
+never uploads private files to GitHub and refuses older two-partition/ext4-data
+images as well as FAT12/FAT16 data filesystems.
 
 The target hostname is `pico8`. The WLAN interface uses DHCP and sends that
 hostname to the DHCP server. Before requesting a lease, ifup starts
-wpa_supplicant using `/data/network/wpa_supplicant.conf`; this must reside on
-a mounted data partition, be root-owned and have mode 0600. Missing credentials
-are reported explicitly and do not start an unconfigured supplicant. The data partition is prepared by the project post-image script; private
+the WLAN helper using `/data/network/wpa_supplicant.conf`; this must reside on
+a mounted data partition, be root-owned and have mode 0600 or 0700. The helper
+starts wpa_supplicant with the private mode-0600 RAM copy. Missing credentials
+are reported explicitly and do not start an unconfigured supplicant.
+The data partition is prepared by the project post-image script; private
 credential installation remains a local provisioning step.
 
 Avahi advertises the host addresses and workstation on WLAN using mDNS/DNS-SD,

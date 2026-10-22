@@ -25,7 +25,7 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
 - Die Kernel-Konfiguration wird aus dem Raspberry-Pi-Boardprofil abgeleitet
   und mit einem versionierten, hardwarebezogenen Fragment um nicht benoetigte
   Treiber und Dateisysteme bereinigt. Erhalten bleiben die benoetigten Pfade
-  fuer Broadcom-WLAN/Bluetooth, VC4/HDMI, Audio, SD/ext4, USB-Speicher und
+  fuer Broadcom-WLAN/Bluetooth, VC4/HDMI, Audio, SD/ext4/FAT32, USB-Speicher und
   Controller-Eingaben.
 - Standard-Zielmedium fuer das erste SD-Karten-Image ist eine 16-GB-Karte;
   die Datenpartition wird beim ersten Systemstart bis zum Ende der SD-Karte
@@ -55,8 +55,10 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
 - SSH ist standardmaessig aktiv und nur aus dem LAN erreichbar.
 - Hostname: `pico8`; WLAN bezieht seine Adresse per DHCP. Avahi kuendigt
   den Host per mDNS/DNS-SD als `pico8.local` im lokalen WLAN an.
-- WLAN-Zugangsdaten liegen persistent in `/data/network/wpa_supplicant.conf`,
-  root-eigen mit Modus 0600; private Zugangsdaten bleiben ausserhalb von Git
+- WLAN-Zugangsdaten liegen persistent in `/data/network/wpa_supplicant.conf`.
+  Die FAT32-Datenpartition wird unter Linux mit root-exklusiven Mount-Masken
+  eingebunden; der WLAN-Dienst verwendet eine root-eigene RAM-Kopie mit Modus
+  0600 unter `/run/picoos-wifi/`. Private Zugangsdaten bleiben ausserhalb von Git
   und oeffentlichen Images. Fuer den Bring-up ist lokale Provisionierung
   vorgesehen, bis das Setup-Portal implementiert ist.
 - SSH verwendet den unprivilegierten Systembenutzer `pico`; direkter
@@ -89,8 +91,10 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
 - SWUpdate soll Updates sowohl ueber ein Webinterface (Paket-Upload) als auch
   durch Abruf von einem Update-Server einspielen koennen.
 - PICO-8-Dateien und spaetere Nutzerdaten liegen auf einer separaten
-  Datenpartition. Diese wird beim ersten Start automatisch auf den verfuegbaren
-  Rest der SD-Karte erweitert.
+  FAT32-Datenpartition, damit Windows, macOS und Linux darauf zugreifen koennen.
+  FAT32 speichert keine Unix-Rechte oder Symlinks; einzelne Dateien duerfen
+  hoechstens 4 GiB minus ein Byte gross sein. Die automatische Erweiterung auf
+  den verfuegbaren Rest der SD-Karte ist weiterhin geplant, nicht implementiert.
 - Das Image soll die benoetigten Laufzeitvoraussetzungen fuer PICO-8
   bereitstellen, obwohl PICO-8-Binary und Cartridges nicht mitgeliefert
   werden. Die konkreten Bibliotheken und Audio-/Grafik-Schnittstellen muessen

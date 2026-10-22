@@ -1,7 +1,8 @@
 ctrl_interface=/var/run/wpa_supplicant
 country=DE
 
-# Copy to wpa_supplicant.conf, replace values, and set root ownership/mode 0600.
+# Copy to wpa_supplicant.conf and replace values; FAT32 permissions use mount masks.
+# On Linux, keep the data partition root-only. The service makes a private RAM copy.
 # This example is not used automatically.
 network={
     ssid="YOUR_2G4_WIFI"

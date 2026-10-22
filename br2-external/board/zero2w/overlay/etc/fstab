@@ -5,4 +5,4 @@ tmpfs /dev/shm tmpfs mode=1777 0 0
 tmpfs /tmp tmpfs mode=1777 0 0
 tmpfs /run tmpfs mode=0755,nosuid,nodev 0 0
 sysfs /sys sysfs defaults 0 0
-/dev/mmcblk0p3 /data ext4 defaults,nosuid,nodev 0 2
+/dev/mmcblk0p3 /data vfat defaults,nosuid,nodev,uid=0,gid=0,fmask=0077,dmask=0077,utf8=1 0 2

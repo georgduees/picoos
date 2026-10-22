@@ -105,6 +105,7 @@ enable_store() {
         else
             dropbearkey -t ed25519 -f "$stage/dropbear_ed25519_host_key" >/dev/null ||
                 fail "host-key generation failed."
+            rm -f "$stage/dropbear_ed25519_host_key.pub"
         fi
         host_key "$stage/dropbear_ed25519_host_key"
         mv "$stage" "$store"

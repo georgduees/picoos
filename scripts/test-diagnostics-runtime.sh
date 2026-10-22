@@ -44,6 +44,7 @@ if [ "$1" = -t ]; then
     test "$2" = ed25519
     test "$3" = -f
     printf 'test-only-dropbear-key\n' > "$4"
+    cp "$TEST_ROOT/client.pub" "$4.pub"
 else
     test "$1" = -y
     test "$2" = -f
@@ -102,6 +103,7 @@ printf 'invalid\n' > "$work/invalid.pub"
 chmod 600 "$work/invalid.pub"
 reject run enable "$work/invalid.pub" "$work/host-key"
 run enable "$work/authorized_keys" "$work/host-key"
+test "$(find "$store" -type f | wc -l)" -eq 3
 cmp "$work/host-key" "$store/dropbear_ed25519_host_key"
 reject run enable "$work/authorized_keys"
 run prepare
@@ -193,6 +195,8 @@ run disable
 rm "$store/authorized_keys" "$store/dropbear_ed25519_host_key"
 rmdir "$store"
 run enable "$work/authorized_keys"
+test "$(find "$store" -type f | wc -l)" -eq 3
+test ! -e "$store/dropbear_ed25519_host_key.pub"
 run prepare
 run start
 run check

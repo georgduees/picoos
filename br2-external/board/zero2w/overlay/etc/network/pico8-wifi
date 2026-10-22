@@ -18,6 +18,12 @@ case "$1" in
             echo "WLAN: $config must be owned by root with mode 0600." >&2
             exit 1
         fi
+        # BusyBox runs inline pre-up commands before the wait_iface hook.
+        if ! IFACE=wlan0 IF_WAIT_DELAY="${IF_WAIT_DELAY:-10}" \
+            /etc/network/if-pre-up.d/wait_iface; then
+            echo "WLAN: wlan0 did not appear before the startup timeout." >&2
+            exit 1
+        fi
         /usr/sbin/wpa_supplicant -B -i wlan0 -D nl80211 -c "$config" -P "$pidfile"
         ;;
     stop)

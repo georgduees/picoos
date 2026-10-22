@@ -88,10 +88,43 @@ During WLAN bring-up, the hardware log also reported
 `brcmf_sdio_checkdied: firmware trap in dongle` and
 `Firmware has halted or crashed`, followed by SDIO device reinitialization.
 Connectivity was intermittent, including failed pings after earlier successful
-ones. The crash trigger is not established; power saving is a hypothesis,
-not a confirmed cause.
+ones. The historical crash trigger is not established.
 
-On an image containing `iw`, compare connectivity with power saving enabled
+Direct Ethernet-assisted testing on 2026-10-22 reproduced repeated WPA
+authentication timeouts with power saving disabled. With a fresh driver load,
+disabling firmware WPA handshake offload completed the WPA2-PSK handshake;
+a fresh load with the default feature mask reproduced the timeouts, and
+disabling offload again restored the connection. With the workaround and
+power saving enabled, WLAN obtained a DHCP lease and answered all 20
+router pings explicitly bound to `wlan0`.
+
+`overlay/etc/modprobe.d/brcmfmac.conf` therefore sets
+`options brcmfmac feature_disable=8192` for this board profile. This disables
+only FWSUP (bit 13 in the pinned kernel's `brcmfmac/feature.h`), leaving
+the WPA handshake to wpa_supplicant; it does not disable WPA encryption or
+power saving. Revalidate this workaround when changing kernel/firmware.
+This isolates the observed authentication failure to the firmware-offload
+path in the tested combination, not necessarily to a particular component's
+implementation. It does not establish the cause of the earlier firmware crash.
+
+Boot testing also exposed an interface-readiness ordering issue: BusyBox ifup
+runs the inline `pre-up` supplicant command before the standard `wait_iface`
+hook. The WLAN helper now calls that existing bounded wait explicitly before
+starting the supplicant, so asynchronous SDIO probe/firmware loading can finish.
+The configured `wait-delay` is respected (10 seconds by default), with an
+explicit error if `wlan0` does not appear.
+
+After both changes were deployed to the test card, reboot verification
+confirmed automatic WPA completion and DHCP (`192.168.0.98`), with power saving
+still enabled. Router pings bound to WLAN passed after boot (20/20) and after
+an idle period (30/30), without a firmware-crash message in that boot's log.
+A final test temporarily brought `eth0` down: laptop-to-Pi ping and public-key
+SSH to the WLAN address worked, and another 5/5 WLAN router pings succeeded.
+Ethernet was then restored. A separate Pi-to-laptop ping did not receive
+replies; the laptop has UFW active, which was not changed or investigated.
+These are bounded bring-up tests, not a long-duration stability certification.
+
+For additional diagnosis on an image containing `iw`, compare connectivity with power saving enabled
 and disabled, including after an idle period:
 
 ```sh
@@ -177,6 +210,39 @@ The target enables `wpa_cli` and its control-interface support, matching the
 Older images without this support must omit that directive for diagnosis.
 
 ## Data partition
+
+### Temporary USB-Ethernet diagnosis
+
+For an existing card, `scripts/prepare-ethernet-diagnostics.sh` accepts the
+unmounted ext4 `rootfs` partition and a local SSH public key:
+
+```sh
+sudo bash scripts/prepare-ethernet-diagnostics.sh \
+  /dev/disk/by-id/YOUR_SD_CARD-part2 ~/.ssh/id_ed25519.pub
+```
+
+This does not flash the card or change `/data`. It archives the original
+network/Avahi/Dropbear configuration under `/root`, loads the ASIX USB-Ethernet
+modules at boot, enables DHCP on `eth0`, and allows Avahi on Ethernet as well
+as WLAN. It installs the supplied public key for a temporary diagnostic
+`root` SSH login and disables all SSH password authentication (`dropbear -s`).
+This is not the planned non-root `pico` account setup. Only use it on a trusted
+LAN; remove the temporary root authorized key after diagnosis and restore the
+desired SSH policy. The helper refuses to replace existing authorized keys
+or an existing `eth0` interface configuration.
+
+The shipped image contains `asix` and `ax88179_178a` modules. A Chromecast Ultra
+Ethernet power adapter still needs a working USB host connection on the Pi's
+USB data port; the presence of drivers alone does not prove cable/OTG
+compatibility. Check the router's DHCP lease list for the Ethernet address if
+`pico8.local` is unavailable.
+
+On 2026-10-22, the owner's Chromecast Ultra Ethernet power adapter was verified
+on the Zero 2 W: the kernel identified an AX88772C PHY using `asix`, Ethernet
+negotiated 100 Mbps/full duplex, and DHCP, mDNS and root public-key SSH worked.
+Five router pings through `eth0` completed without loss; Dropbear ran with
+password authentication disabled (`-s`). WLAN was down during this check;
+the intermittent WLAN fault is not resolved by this Ethernet result.
 
 The project post-image script creates a third, 256 MiB ext4 partition labelled
 `picoos-data`, mounted as `/data` from `/dev/mmcblk0p3` before init services.

@@ -137,7 +137,7 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Protokoll, Farbtiefe und Dithering-Verfahren werden beim Hardware-Prototyp
   festgelegt.
 
-## A/B-Layout (Slot A getestet, Recoverytests ausstehend)
+## A/B-Layout (A/B-Starts und Watchdog-Rollback getestet)
 
 Der Nutzer hat 1 GiB als Standardgroesse der FAT32-Datenpartition festgelegt.
 Die bisherige Drei-Partitionen-Karte hatte 32 MiB Boot, einen
@@ -145,8 +145,13 @@ Die bisherige Drei-Partitionen-Karte hatte 32 MiB Boot, einen
 implementiert das folgende Layout. Die Karte wurde nach gepruefter Sicherung ausdruecklich fuer den
 Hardwaretest neu geschrieben. Der erste Slot-A-Boot mit p4-Daten, WLAN,
 Ethernet-SSH, lokaler Bestaetigung und aktivem Watchdog ist nach der
-Firmware-UART-Korrektur nachgewiesen; Slot B, Updatewechsel, erzwungener
-Watchdog-Neustart und Rollback sind noch offen.
+Firmware-UART-Korrektur nachgewiesen. Nach Korrektur eines Rueckgabewertfehlers
+im alten U-Boot-Hush-Parser starten und bestaetigen sich A und B.
+Drei unbestaetigte A-Starts mit Zaehler 1/2/3, automatische Watchdog-Neustarts
+und Rueckfall auf bestaetigtes B wurden getestet. Der voruebergehend
+deaktivierte A-Health-Check wurde wiederhergestellt und ein normaler
+Rueckstart nach A bestaetigt. Alle 12 Nutzdateien blieben hashgleich.
+Eine echte SWUpdate-Installation und Stromausfalltests sind noch offen.
 
 MBR-Layout mit vier primaeren Partitionen, jeweils
 MiB-ausgerichtet:

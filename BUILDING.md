@@ -364,10 +364,11 @@ images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 
 ### A/B development implementation
 
-This is a new layout with **first Slot A boot verified, recovery unverified**,
-not an in-place upgrade of a three-partition card. Back up `/data` before an
-explicitly approved reflash. Do not use it as a proven recovery system until
-the hardware test matrix below passes.
+This is a new layout with **A/B boots and three-attempt watchdog rollback
+verified**; actual SWUpdate installation and power-loss tests remain pending.
+It is not an in-place upgrade of a three-partition card. Back up `/data`
+before an explicitly approved reflash. Do not treat this as fully qualified
+update recovery until the hardware test matrix below passes.
 
 | Region | Offset | Size |
 | --- | --- | --- |
@@ -378,6 +379,8 @@ the hardware test matrix below passes.
 
 U-Boot 2026.04 uses `rpi_3_32b` with a custom redundant MMC environment and
 boots `/boot/zImage`, DTB and `miniuart-bt.dtbo` from the selected ext4 slot.
+U-Boot keeps its HDMI/serial text console but disables its own video logo
+and splash screen. This does not disable the Linux/PicoOS splash.
 The firmware's shared DTB is needed to bring up U-Boot. Keep the firmware UART
 in its default mini-UART configuration with `enable_uart=1`: do **not** apply
 `miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build. U-Boot applies
@@ -457,6 +460,52 @@ backed-up host identity. All 12 data files matched the pre-A/B SHA-256 manifest.
 This verifies the normal first boot, **not** a forced watchdog reset, Slot B,
 SWUpdate switching, three-attempt rollback or power-loss behavior.
 
+#### Slot-selection interpreter regression
+
+The first B trial returned to A although both slots' kernel, DTB, overlay,
+health service and diagnostic SSH files matched. The `rpi_3_32b` build uses
+U-Boot's **old Hush parser**, not the laptop's Bash or Linux BusyBox shell.
+In that parser, `if false; then ...; fi` returns 1. The original `select_slot`
+ended with such a false condition for every valid slot, so
+`run select_slot && run load_slot` skipped the primary boot and entered the
+stable-slot fallback. Initial successful A boots therefore did not prove
+that selection worked.
+
+The selector now has an explicit successful branch for valid A/B identities,
+while invalid identities still return the rollback result. A native U-Boot
+2026.04 sandbox with the same old Hush parser reproduces the old failure and
+passes the corrected A/B, interrupted/failed transaction and invalid-slot
+cases. The fix was installed on the test device as one read-back-verified
+`select_slot` change through libubootenv before re-arming B; no root image or
+data was rewritten. B then booted p3, automatically confirmed
+`boot_slot=stable_slot=B`, cleared `upgrade_available` / `bootcount`, and had
+active watchdog, authenticated WLAN and the original SSH host identity.
+Fresh images include the corrected default environment. Existing development
+cards require this explicit environment maintenance; a root-only SWUpdate
+package does not automatically replace arbitrary shared bootloader scripts.
+
+#### Three-attempt watchdog rollback (2026-10-22)
+
+With explicit permission for fault injection, confirmed B remained the stable
+slot while only the inactive A health script's executable mode was changed
+from 0755 to 0644. Kernel, boot assets and data were not modified. A was armed
+with `upgrade_available=1` and `bootcount=0` using `fw_setenv -s`.
+
+SSH observations captured A booting with persistent counters **1, 2 and 3**,
+each time retaining `stable_slot=B` and no userspace watchdog feeder or slot
+confirmation. Automatic resets occurred without further reboot commands;
+U-Boot then returned to B, which confirmed itself with
+`upgrade_available=0`, `bootcount=0` and an active 15-second watchdog.
+The driver reported `bootstatus=0` throughout, so this is an observed
+watchdog/fallback test, not a claim that the reset-cause register was decoded.
+
+The inactive A health script was compared with its original and restored to
+0755. A subsequent normal B-to-A trial boot confirmed A successfully with
+working WLAN/SSH and active watchdog. All 12 `/data` file hashes after the
+rollback matched the verified pre-A/B backup. This verifies the configured
+attempt limit, automatic fallback and repaired slot; it does **not** test
+power loss or an actual SWUpdate raw-image installation.
+
 Additional host tests:
 
 - `bash scripts/test-ab-runtime.sh`: root/slot identity, inactive-slot guards and
@@ -464,6 +513,11 @@ Additional host tests:
 - `bash scripts/test-uboot-env.sh /path/to/mkenvimage /path/to/fw_printenv /path/to/fw_setenv`:
   real libubootenv reads/writes on a disposable file, confirmation syntax and
   one corrupt redundant copy.
+- `bash scripts/test-uboot-bootflow.sh /path/to/native/sandbox/u-boot`:
+  tests the actual environment selection script in U-Boot's old Hush parser,
+  checking success return values as well as slot identities. Requires the
+  matching sandbox `.config` and `arch/sandbox/dts/sandbox.dtb`; unlike a
+  Bash-based mock this catches the false-condition return-status regression.
 - `bash scripts/test-swu.sh /path/to/rootfs.ext4 provisioning/local/update-signing/dev.key /path/to/native/swupdate`:
   genuine SWUpdate check-only verification of both slot manifests and negative
   signature/payload/board tests. Use a native SWUpdate build with socket paths

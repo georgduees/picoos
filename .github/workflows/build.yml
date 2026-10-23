@@ -70,9 +70,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: output/
-          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
+            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
 
       - name: Cache Buildroot downloads
         uses: actions/cache@v4

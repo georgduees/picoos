@@ -12,8 +12,14 @@ The `pico8` ARMv6 binary expects legacy `libbcm_host.so`, which is not present
 in this image. `pico8_gpio` additionally requires `libwiringPi.so`.
 The 64-bit `pico8_64` is not appropriate for this 32-bit userspace.
 `pico8_dyn` is the matching ARM hard-float variant but needs `libSDL2-2.0.so.0`.
-Buildroot now includes SDL2 for that runtime. The live framebuffer is
-`/dev/fb0`. BlueZ, its `bluetoothctl` client, Bluetooth HID/HOG profiles, and
+Buildroot builds SDL2 with KMS/DRM and Mesa Gallium VC4 for the Zero 2 W's
+VideoCore IV. U-Boot applies `vc4-kms-v3d.dtbo` to the slot-local DTB,
+exposing `/dev/dri/card0` without an X11/Wayland session. The firmware GPU
+reservation is 64 MiB; KMS uses CMA from system memory rather than requiring a
+large legacy GPU split. The active image before this change had only a firmware
+framebuffer and PICO-8 failed with `SDL Error: No available video device`.
+The PICO-8 install remains user-provided on `/data/pico8` and will be retested
+after the KMS image is deployed.
 the Linux joystick test utilities are included for Bluetooth keyboards, mice,
 and controllers. The kernel loads its Bluetooth UART and HID/input modules at
 boot. The internal Bluetooth controller (BCM43436, firmware

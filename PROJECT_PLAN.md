@@ -99,8 +99,14 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
 - Das Image soll die benoetigten Laufzeitvoraussetzungen fuer PICO-8
   bereitstellen, obwohl PICO-8-Binary und Cartridges nicht mitgeliefert
   werden. Fuer die vorliegende Version 0.2.7 benoetigt `pico8_dyn` SDL2;
-  SDL2 wurde deshalb zur Buildroot-Konfiguration hinzugefuegt. Die
-  Kompatibilitaet der SDL2-Grafik-/Audio-/Eingabe-Backends, der HDMI-Ausgabe
+  SDL2 wurde deshalb zur Buildroot-Konfiguration hinzugefuegt.
+  Der Zero-2-W-Build erhaelt den KMS/DRM-Grafikpfad, Mesa Gallium VC4 fuer
+  VideoCore IV, SDL2-KMSDRM und den Firmware-Overlay `vc4-kms-v3d`; die
+  Firmware-GPU-Reservierung sinkt von 100 auf 64 MiB. KMS nutzt zusaetzlich
+  CMA aus dem Systemspeicher. Ein Hardwaretest mit dem aktuellen Image ergab
+  `SDL Error: No available video device`; der neue Pfad ist nach dem Rollout
+  gegen PICO-8 auf HDMI, Controller-Eingabe und Leistung zu pruefen.
+  Die Kompatibilitaet der SDL2-Grafik-/Audio-/Eingabe-Backends, der HDMI-Ausgabe
   und die Leistung auf Zero 2 W und dem aelteren Zero W muessen praktisch
   geprueft werden. Das klassische `pico8` benoetigt das im Image fehlende
   Legacy-`libbcm_host.so`, `pico8_gpio` zusaetzlich WiringPi, und die

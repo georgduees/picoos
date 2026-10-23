@@ -63,9 +63,15 @@ debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
     > "$work/sdl2-runtime-link" 2>&1
 grep -q 'Type:[[:space:]]*symlink' "$work/sdl2-runtime-link"
 grep -q 'Fast link dest:' "$work/sdl2-runtime-link"
-for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest; do
+for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest \
+    usr/bin/wget usr/sbin/ntpd etc/init.d/S49ntp; do
     debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
         grep -Eq 'Mode:[[:space:]]+0755'
+done
+for path in etc/ssl/certs/ca-certificates.crt etc/ntp.conf; do
+    debugfs -R "dump /$path $work/runtime-file" "$work/images/rootfs.ext4"
+    test -s "$work/runtime-file"
+    rm "$work/runtime-file"
 done
 for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state \
     etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \

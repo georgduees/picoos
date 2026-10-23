@@ -51,6 +51,16 @@ The local PICO-8 binary remains user-supplied data and is never copied into
 public images. HDMI audio playback, Bluetooth audio and performance
 measurements remain separate hardware tasks.
 
+Splore downloads require GNU Wget with OpenSSL HTTPS support and the system
+CA certificate bundle. The previous BusyBox Wget rejected HTTPS URLs outright.
+The NTP daemon starts through Buildroot's `S49ntp`, after network startup,
+and synchronizes against the configured NTP pool servers when the network
+is available. Its `-g` option permits the initial correction from 1970 on
+this board without an RTC. Boot does not wait for synchronization; offline
+use remains possible, but HTTPS certificate validation needs a correct clock.
+Neither a successful download nor clock synchronization has yet been verified
+on hardware with this updated package selection. Curl is not needed by PICO-8.
+
 Configure and build from this project directory:
 
 ```sh

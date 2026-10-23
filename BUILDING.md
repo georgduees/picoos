@@ -19,8 +19,20 @@ original DTB on older slots without the overlay. New slots expose
 reservation is 64 MiB; KMS uses CMA from system memory rather than requiring a
 large legacy GPU split. The active image before this change had only a firmware
 framebuffer and PICO-8 failed with `SDL Error: No available video device`.
-The PICO-8 install remains user-provided on `/data/pico8` and will be retested
-after the KMS image is deployed.
+On 2026-10-23, image commit `4b5acbe` booted and confirmed slot A. Loading
+`i2c_bcm2835` and `vc4` exposed DRM card0/renderD128 and the HDMI sound card.
+Both modules are now listed in `graphics.conf` for boot-time loading. PICO-8
+started with `SDL_VIDEODRIVER=kmsdrm SDL_AUDIODRIVER=dummy`, loaded Mesa
+Gallium/EGL/GLES, and its prompt was confirmed visible on HDMI by the user.
+Splore navigation with the Stadia controller was also confirmed. The local
+PICO-8 config uses `boot_to_splore 1` and, for testing only, `show_fps 1`.
+After a restart, DRM devices and Bluetooth pairing were present without
+manual module loading; PICO-8 autostart is not yet implemented.
+The existing card still reserves 100 MiB of firmware GPU RAM; the new 64 MiB
+setting applies to fresh images, not root-only updates. U-Boot environment
+maintenance was backed up on `/data/kms-maintenance-4b5acbe` and read-back
+verified; older slots without the overlay retain their original DTB boot.
+BlueZ, its `bluetoothctl` client, Bluetooth HID/HOG profiles, and
 the Linux joystick test utilities are included for Bluetooth keyboards, mice,
 and controllers. The kernel loads its Bluetooth UART and HID/input modules at
 boot. The internal Bluetooth controller (BCM43436, firmware
@@ -36,9 +48,8 @@ settings only need an entry in `LINKS` in `picoos-state`. Paired devices survive
 controller (Bluetooth firmware mode) has been paired and read via
 `/dev/input/js0` on hardware; no ALSA audio device has been verified.
 The local PICO-8 binary remains user-supplied data and is never copied into
-public images. Launching the emulator, validating rendered HDMI output/audio,
-checking SDL2 gamepad input and Bluetooth pairing/audio, and checking
-performance remain separate hardware tasks.
+public images. HDMI audio playback, Bluetooth audio and performance
+measurements remain separate hardware tasks.
 
 Configure and build from this project directory:
 

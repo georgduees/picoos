@@ -106,9 +106,13 @@ erfolgreich gebaute und auf dem Zielgeraet getestete Images gesetzt.
   Der U-Boot-Overlay-Schritt bleibt mit bestehenden Slots kompatibel: Fehlt
   das Overlay dort, wird das bisherige DTB ohne KMS weitergebootet.
   KMS nutzt zusaetzlich CMA aus dem Systemspeicher.
-  Ein Hardwaretest mit dem aktuellen Image ergab
-  `SDL Error: No available video device`; der neue Pfad ist nach dem Rollout
-  gegen PICO-8 auf HDMI, Controller-Eingabe und Leistung zu pruefen.
+  Am 2026-10-23 bootete Image `4b5acbe` in Slot A. Nach Laden von
+  `i2c_bcm2835` und `vc4` erschien die PICO-8-Eingabeaufforderung auf HDMI
+  (vom Nutzer bestaetigt). Beide Module werden fuer den Bootstart eingetragen.
+  Splore ist mit dem Stadia-Controller bedienbar (vom Nutzer bestaetigt).
+  Grafikmodule und Bluetooth starten auch nach einem Neustart automatisch.
+  Ton war beim Test deaktiviert; Leistung ist weiterhin zu messen. Die vorhandene Karte behaelt beim Root-Update
+  noch ihre bisherige Firmware-GPU-Reservierung von 100 MiB.
   Die Kompatibilitaet der SDL2-Grafik-/Audio-/Eingabe-Backends, der HDMI-Ausgabe
   und die Leistung auf Zero 2 W und dem aelteren Zero W muessen praktisch
   geprueft werden. Das klassische `pico8` benoetigt das im Image fehlende

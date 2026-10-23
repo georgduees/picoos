@@ -87,6 +87,11 @@ debugfs -R "dump /etc/modules-load.d/bluetooth.conf $work/bluetooth-modules" \
     "$work/images/rootfs.ext4"
 cmp "$work/bluetooth-modules" \
     "$project_dir/br2-external/board/zero2w/overlay/etc/modules-load.d/bluetooth.conf"
+debugfs -R "dump /etc/modules-load.d/graphics.conf $work/graphics-modules" \
+    "$work/images/rootfs.ext4"
+cmp "$work/graphics-modules" \
+    "$project_dir/br2-external/board/zero2w/overlay/etc/modules-load.d/graphics.conf"
+
 for path in /etc/picoos-diagnostics-import /root/.ssh/authorized_keys \
     /etc/dropbear/dropbear_ed25519_host_key; do
     debugfs -R "dump $path $work/forbidden-file" "$work/images/rootfs.ext4" 2>/dev/null

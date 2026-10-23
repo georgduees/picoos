@@ -26,8 +26,41 @@ started with `SDL_VIDEODRIVER=kmsdrm SDL_AUDIODRIVER=dummy`, loaded Mesa
 Gallium/EGL/GLES, and its prompt was confirmed visible on HDMI by the user.
 Splore navigation with the Stadia controller was also confirmed. The local
 PICO-8 config uses `boot_to_splore 1` and, for testing only, `show_fps 1`.
+Launch with `picoos-pico8 -splore`. This wrapper explicitly forces
+`-pixel_perfect 1`, SDL nearest-neighbour scaling and
+`-draw_rect 448,28,1024,1024`: the 128x128 game image is centered at exactly
+8x on the 1920x1080 output. New images enable SDL2's ALSA backend by including
+alsa-lib. The launcher selects ALSA's default PCM; `/etc/asound.conf` routes it
+through `plug` to `hw:CARD=vc4hdmi,DEV=0`, using the stable HDMI card name
+rather than its numeric index. ALSA converts PICO-8's mono/22050 Hz output
+to hardware-supported parameters. No silent dummy fallback is configured.
+Use the television's 1:1/Just Scan mode; panel scaling can still soften
+the HDMI image if the panel is not native 1920x1080.
 After a restart, DRM devices and Bluetooth pairing were present without
 manual module loading; PICO-8 autostart is not yet implemented.
+Shutdown tracing on 2026-10-23 showed a reboot hanging in `S11modules`,
+after network and Bluetooth services had stopped. The board's module service
+therefore loads configured modules at startup but does not unload them at
+shutdown. The kernel handles device shutdown; restart/reload only ensures
+modules are loaded. Cold boots connected to WLAN automatically, whereas the
+hung shutdown never reached a new boot. WLAN boot/reconnect validation must
+be distinguished from this shutdown failure.
+The login getty runs only on `tty1`. A generic `/dev/console` getty would
+compete with it because the kernel console is also `tty1`, causing
+`tcsetpgrp: Inappropriate ioctl for device` during startup.
+With the no-unload module service installed, two consecutive software reboots
+on the test Pi returned automatically to WLAN at `192.168.0.98`; Internet
+pings bound to `wlan0` succeeded without packet loss. The second reboot used
+the original, uninstrumented shutdown script and the single `tty1` getty;
+no `tcsetpgrp` error was logged. Slot A remained confirmed and KMS used
+1280x720 with no margins. This does not yet certify offline-to-online or
+access-point-loss recovery.
+The HDMI baseline is 1920x1080 at 60 Hz: firmware uses CEA group 1, mode 16,
+and the KMS kernel command line uses `video=HDMI-A-1:1920x1080@60`.
+Existing cards need both shared firmware configuration and persistent U-Boot
+`load_slot` maintenance; a root-only update does not change these settings.
+No software overscan/underscan controls are installed. Disable overscan on the
+television if necessary.
 The existing card still reserves 100 MiB of firmware GPU RAM; the new 64 MiB
 setting applies to fresh images, not root-only updates. U-Boot environment
 maintenance was backed up on `/data/kms-maintenance-4b5acbe` and read-back
@@ -51,6 +84,14 @@ The local PICO-8 binary remains user-supplied data and is never copied into
 public images. HDMI audio playback, Bluetooth audio and performance
 measurements remain separate hardware tasks.
 
+HDMI audio bring-up: `aplay -l` lists hardware devices, and
+`speaker-test -D default -c 2 -r 48000 -t sine -l 1` tests the configured
+default output. Start with low TV volume. Confirm that PICO-8's log reports
+`Current audio driver: alsa`, then verify audible game audio. The currently
+deployed `d883b21` base still uses the previous dummy-audio launcher; the ALSA
+package selection, output configuration and new launcher require a new build
+and hardware validation before HDMI audio can be considered working.
+
 Splore downloads require GNU Wget with OpenSSL HTTPS support and the system
 CA certificate bundle. The previous BusyBox Wget rejected HTTPS URLs outright.
 The NTP daemon starts through Buildroot's `S49ntp`, after network startup,
@@ -58,8 +99,17 @@ and synchronizes against the configured NTP pool servers when the network
 is available. Its `-g` option permits the initial correction from 1970 on
 this board without an RTC. Boot does not wait for synchronization; offline
 use remains possible, but HTTPS certificate validation needs a correct clock.
-Neither a successful download nor clock synchronization has yet been verified
-on hardware with this updated package selection. Curl is not needed by PICO-8.
+On 2026-10-23, the signed `d883b21` base was installed on slot B and confirmed.
+Before booting, local bring-up corrections (no module unloading, WLAN-only
+diagnostics, single tty1 getty and the pixel-perfect launcher) were copied into
+the inactive root, together with the existing PICO-8 home and demos. This is
+therefore a locally maintained root, not an unmodified CI artifact.
+After boot, ntpd corrected the clock from 1970 without a manual date command.
+GNU Wget downloaded `https://carts.lexaloffle.com/astfm-1.p8.png` with normal
+certificate verification (HTTP 200, 33655 bytes, PNG signature verified).
+Splore subsequently populated its BBS cartridge cache with new downloads.
+KMS remained at 1920x1080 and PICO-8 ran with the centered 1024x1024 draw
+rectangle and pixel-perfect scaling. Curl is not needed by PICO-8.
 
 Configure and build from this project directory:
 
@@ -419,8 +469,9 @@ images as well as ext4/FAT12/FAT16 data filesystems in the data partition.
 ### Opt-in persistent bring-up diagnostics
 
 The regular non-root `pico` account remains separate work. For bring-up only,
-`picoos-diagnostics` provides explicitly enabled **key-only root SSH** and
-Ethernet DHCP across root-slot replacements. It does not import arbitrary
+`picoos-diagnostics` provides explicitly enabled **key-only root SSH** over
+WLAN across root-slot replacements. USB-OTG Ethernet is no longer enabled by
+this service and is not required for boot health. It does not import arbitrary
 `/etc` files or execute configuration from the data partition.
 Public images contain neither diagnostic keys nor an activation marker;
 the base public key is **not automatically granted root access**.
@@ -452,16 +503,15 @@ An existing store is not overwritten by another key-provisioning command.
 Before networking, `S30picoos-diagnostics` validates the mounted FAT32 p4,
 ownership, synthetic/private modes, file types, format and Ed25519 keys.
 It copies keys into a mode-0700 RAM directory with mode-0600 key files, points
-root's `authorized_keys` there and prepares an ifup source for Ethernet DHCP.
-The ASIX drivers load only when diagnostics are enabled; Avahi permits WLAN
-and Ethernet. `S50dropbear` uses fixed key-only arguments and the explicit RAM
+root's `authorized_keys` there. It does not load USB-Ethernet drivers or
+configure Ethernet DHCP. `S50dropbear` uses fixed key-only arguments and the explicit RAM
 host key, never automatic fallback host-key generation or shell-sourced
 persistent options. The local boot health check requires the opted-in
 listener to be prepared and running before confirming a trial slot.
 
 `picoos-diagnostics disable` removes the activation marker and stops the
-listener, retaining the stored keys. Existing SSH sessions and Ethernet
-configuration may remain until reboot. Re-enable a retained store with
+listener, retaining the stored keys. Existing SSH sessions
+may remain until reboot. Re-enable a retained store with
 `picoos-diagnostics enable` without arguments. Key-file edits require
 preparation again (normally a reboot); malformed enabled configuration fails
 closed and prevents trial confirmation.
@@ -577,7 +627,7 @@ The firmware's shared DTB is needed to bring up U-Boot. Keep the firmware UART
 in its default mini-UART configuration with `enable_uart=1`: do **not** apply
 `miniuart-bt` in the shared `config.txt` for this `rpi_3_32b` build; the slot
 DTB is used unmodified so Bluetooth stays on the PL011. Root filesystems remain **read/write** for this bring-up.
-The explicit diagnostic opt-in above persists its keys and Ethernet policy;
+The explicit diagnostic opt-in above persists its SSH keys;
 read-only roots, the regular `pico` account and general system-configuration
 persistence are not implemented. Other changes confined to the old root do
 not follow a slot update.

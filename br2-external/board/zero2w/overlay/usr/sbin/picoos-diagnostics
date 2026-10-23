@@ -145,7 +145,7 @@ case "$action" in
         sync
         clear_runtime
         stop_sshd
-        echo "PicoOS diagnostics disabled; existing sessions/Ethernet may remain until reboot."
+        echo "PicoOS diagnostics disabled; existing sessions may remain until reboot."
         ;;
     prepare)
         clear_runtime
@@ -183,11 +183,8 @@ case "$action" in
             rm /root/.ssh/authorized_keys
         fi
         ln -snf "$runtime/authorized_keys" /root/.ssh/authorized_keys
-        modprobe asix || fail "cannot load ASIX Ethernet driver."
-        modprobe ax88179_178a || fail "cannot load AX88179 Ethernet driver."
-        printf 'auto eth0\niface eth0 inet dhcp\n    hostname pico8\n' > "$runtime/interfaces"
         printf '%s\n' "$version" > "$runtime/ready"
-        echo "PicoOS diagnostic RAM keys and Ethernet configuration prepared."
+        echo "PicoOS diagnostic RAM keys prepared; SSH uses WLAN."
         ;;
     start|check)
         check_data

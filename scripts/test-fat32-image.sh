@@ -36,6 +36,9 @@ cmp "$project_dir/br2-external/board/zero2w/config.txt" "$work/boot-config.txt"
 grep -Fxq 'kernel=u-boot.bin' "$work/boot-config.txt"
 grep -Fxq 'enable_uart=1' "$work/boot-config.txt"
 grep -Fxq 'gpu_mem_512=64' "$work/boot-config.txt"
+grep -Fxq 'hdmi_group=1' "$work/boot-config.txt"
+grep -Fxq 'hdmi_mode=16' "$work/boot-config.txt"
+grep -Fq ' video=HDMI-A-1:1920x1080@60;' "$project_dir/br2-external/board/zero2w/u-boot.env"
 if grep -Eq '^dtoverlay=(pi3-)?miniuart-bt([,[:space:]]|$)' "$work/boot-config.txt"; then
     echo "Shared firmware must retain the mini-UART for rpi_3_32b U-Boot." >&2
     exit 1
@@ -64,6 +67,7 @@ debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
 grep -q 'Type:[[:space:]]*symlink' "$work/sdl2-runtime-link"
 grep -q 'Fast link dest:' "$work/sdl2-runtime-link"
 for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest \
+    usr/bin/aplay usr/bin/speaker-test \
     usr/bin/wget usr/sbin/ntpd etc/init.d/S49ntp; do
     debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
         grep -Eq 'Mode:[[:space:]]+0755'
@@ -73,9 +77,9 @@ for path in etc/ssl/certs/ca-certificates.crt etc/ntp.conf; do
     test -s "$work/runtime-file"
     rm "$work/runtime-file"
 done
-for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state \
-    etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
-    etc/init.d/S50dropbear \
+for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state usr/sbin/picoos-pico8 \
+    etc/init.d/S11modules etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
+    etc/init.d/S50dropbear etc/asound.conf \
     etc/init.d/S99picoos-health \
     etc/network/interfaces etc/avahi/avahi-daemon.conf; do
     debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
@@ -97,6 +101,9 @@ debugfs -R "dump /etc/modules-load.d/graphics.conf $work/graphics-modules" \
     "$work/images/rootfs.ext4"
 cmp "$work/graphics-modules" \
     "$project_dir/br2-external/board/zero2w/overlay/etc/modules-load.d/graphics.conf"
+debugfs -R "dump /etc/inittab $work/inittab" "$work/images/rootfs.ext4"
+test "$(grep -c '^[^#].*:respawn:.*getty' "$work/inittab")" -eq 1
+grep -Eq '^tty1::respawn:.*getty.*tty1' "$work/inittab"
 
 for path in /etc/picoos-diagnostics-import /root/.ssh/authorized_keys \
     /etc/dropbear/dropbear_ed25519_host_key; do

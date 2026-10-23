@@ -40,6 +40,12 @@ jobs:
       - name: Test A/B slot guards
         run: bash scripts/test-ab-runtime.sh
 
+      - name: Test module lifecycle
+        run: bash scripts/test-modules-runtime.sh
+
+      - name: Test PICO-8 launcher
+        run: bash scripts/test-pico8-launcher.sh
+
       - name: Test opt-in diagnostic persistence
         run: bash scripts/test-diagnostics-runtime.sh
 

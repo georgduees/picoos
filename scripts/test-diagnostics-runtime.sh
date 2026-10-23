@@ -113,9 +113,8 @@ test "$("$REAL_STAT" -c %a "$runtime/authorized_keys")" = 600
 test "$("$REAL_STAT" -c %a "$runtime/dropbear_ed25519_host_key")" = 600
 test "$("$REAL_STAT" -c %a "$runtime")" = 700
 test "$("$REAL_READLINK" "$work/root/.ssh/authorized_keys")" = "$runtime/authorized_keys"
-grep -qx 'auto eth0' "$runtime/interfaces"
-grep -qx asix "$work/modules.log"
-grep -qx ax88179_178a "$work/modules.log"
+! grep -q 'eth0' "$runtime/interfaces"
+test ! -e "$work/modules.log"
 run start
 run check
 printf '0\n' > "$work/run/dropbear.pid"
@@ -151,8 +150,8 @@ reject run prepare
 reject run enable
 printf 'picoos-diagnostics-v1\n' > "$store/enabled"
 reject env TEST_KEY_FAILURE=1 sh "$work/helper" prepare
-reject env TEST_MODULE_FAILURE=1 sh "$work/helper" prepare
-test ! -e "$runtime/ready"
+env TEST_MODULE_FAILURE=1 sh "$work/helper" prepare
+test -s "$runtime/ready"
 run prepare
 reject env TEST_START_FAILURE=1 sh "$work/helper" start
 cp "$store/authorized_keys" "$store/key.saved"

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+cd /data/pico8
+export SDL_VIDEODRIVER=kmsdrm
+export SDL_AUDIODRIVER=alsa
+export AUDIODEV=default
+export SDL_RENDER_SCALE_QUALITY=0
+exec ./pico8_dyn "$@" -pixel_perfect 1 -draw_rect 448,28,1024,1024

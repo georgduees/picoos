@@ -383,11 +383,23 @@ PICO-8 on active tty1, and left no splash process/PID file. The ALSA playback
 status was `RUNNING` with the PICO-8 PID as owner. A later service
 stop/start was also verified. The running process has
 `SDL_RENDER_VSYNC=1`, `SDL_RENDER_SCALE_QUALITY=0` and the ALSA/KMSDRM
-drivers. The root is still based on `6da18c1` with the corrected splash,
-launcher and console files installed directly; it is not a pristine later
-CI image. After a manual BlueZ reconnect, the persistent Stadia pairing was
+drivers. This initial test used `6da18c1` with the corrected splash,
+launcher and console files installed directly. After a manual BlueZ reconnect, the persistent Stadia pairing was
 connected/trusted and exposed both `event2` and `js0`; automatic
 controller-initiated reconnect after power-on is not certified by that test.
+
+Final rollout: both push and PR builds for `b006f49` passed, including the
+complete image, console, animation and Bluetooth persistence tests. The
+signed update (SHA256
+`2484527ba02d7878d10acc8bf4aa5aa01c7a78881dad227930745e30e42ad097`)
+was installed from B to inactive A and read-back verified. Only the existing
+user PICO-8 home was copied to the new root before reboot. Slot A then
+confirmed itself (`stable_slot=A`, `upgrade_available=0`), returned over
+WLAN, automatically started Splore on tty1 with the expected SDL environment
+and owned a running HDMI-ALSA stream. The dashboard reports the new A slot.
+The saved Stadia pairing reconnected on an explicit BlueZ connect and
+exposed `js0`. The shared bootloader/configuration remain the separately
+installed, color-corrected versions described above.
 
 ## Interactive login dashboard
 

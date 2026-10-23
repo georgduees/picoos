@@ -11,3 +11,5 @@ install -m 0644 "$BR2_EXTERNAL_PICOOS_PATH/../assets/keys/swupdate-dev.pub" \
     "$TARGET_DIR/etc/swupdate/public-key.pub"
 # Only the root-only slot-selecting CLI starts SWUpdate; no network/IPC daemon at boot.
 rm -f "$TARGET_DIR/etc/init.d/S80swupdate"
+# An incremental build may retain the former pre-KMS splash service.
+rm -f "$TARGET_DIR/etc/init.d/S00psplash"

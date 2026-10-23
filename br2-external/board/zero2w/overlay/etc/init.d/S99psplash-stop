@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec /etc/init.d/S00psplash stop
+exec /etc/init.d/S12psplash stop

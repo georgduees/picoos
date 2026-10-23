@@ -67,6 +67,7 @@ debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
 grep -q 'Type:[[:space:]]*symlink' "$work/sdl2-runtime-link"
 grep -q 'Fast link dest:' "$work/sdl2-runtime-link"
 for path in usr/bin/bluetoothctl usr/libexec/bluetooth/bluetoothd usr/bin/jstest \
+    usr/bin/psplash usr/bin/psplash-write \
     usr/bin/aplay usr/bin/speaker-test \
     usr/bin/wget usr/sbin/ntpd etc/init.d/S49ntp; do
     debugfs -R "stat /$path" "$work/images/rootfs.ext4" 2>/dev/null |
@@ -78,7 +79,8 @@ for path in etc/ssl/certs/ca-certificates.crt etc/ntp.conf; do
     rm "$work/runtime-file"
 done
 for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state usr/sbin/picoos-pico8 \
-    etc/init.d/S11modules etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
+    etc/init.d/S11modules etc/init.d/S12psplash etc/init.d/S99psplash-stop \
+    etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
     etc/init.d/S50dropbear etc/asound.conf \
     etc/init.d/S99picoos-health \
     etc/network/interfaces etc/avahi/avahi-daemon.conf; do

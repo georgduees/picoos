@@ -46,6 +46,9 @@ jobs:
       - name: Test PICO-8 launcher
         run: bash scripts/test-pico8-launcher.sh
 
+      - name: Test cartridge boot animation
+        run: bash scripts/test-bootanim.sh
+
       - name: Test opt-in diagnostic persistence
         run: bash scripts/test-diagnostics-runtime.sh
 
@@ -112,6 +115,9 @@ jobs:
           if [ -x output/host/bin/ccache ]; then
             CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache" output/host/bin/ccache --show-stats
           fi
+
+      - name: Test animated psplash event loop
+        run: bash scripts/test-psplash-loop.sh output/build/psplash-53ae74a36bf17675228552abb927d2f981940a6a
 
       - name: Test FAT32 image and provisioning checks
         run: |

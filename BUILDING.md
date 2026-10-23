@@ -79,18 +79,22 @@ in a 16 MiB ext4 image, `/data/picoos-state.img`, which `/etc/init.d/S35picoos-s
 itself cannot store Unix modes or names like `B8:27:EB:58:92:2E`. New persistent
 settings only need an entry in `LINKS` in `picoos-state`. Paired devices survive A/B slot updates. A Stadia
 controller (Bluetooth firmware mode) has been paired and read via
-`/dev/input/js0` on hardware; no ALSA audio device has been verified.
+`/dev/input/js0` on hardware; the VC4 HDMI ALSA device is present.
 The local PICO-8 binary remains user-supplied data and is never copied into
-public images. HDMI audio playback, Bluetooth audio and performance
+public images. Audible HDMI confirmation, Bluetooth audio and performance
 measurements remain separate hardware tasks.
 
 HDMI audio bring-up: `aplay -l` lists hardware devices, and
 `speaker-test -D default -c 2 -r 48000 -t sine -l 1` tests the configured
 default output. Start with low TV volume. Confirm that PICO-8's log reports
-`Current audio driver: alsa`, then verify audible game audio. The currently
-deployed `d883b21` base still uses the previous dummy-audio launcher; the ALSA
-package selection, output configuration and new launcher require a new build
-and hardware validation before HDMI audio can be considered working.
+`Current audio driver: alsa`, then verify audible game audio.
+On 2026-10-23, the signed `04d99e6` image was installed and confirmed on slot A.
+The existing PICO-8 home and demos were copied from B before booting.
+Jelpi started with volume 64/256 and the log reported `SDL_OpenAudio ok` and
+`Current audio driver: alsa`. The HDMI PCM stream was `RUNNING`, owned by the
+PICO-8 process, at 44100 Hz stereo in `IEC958_SUBFRAME_LE` format. This verifies
+the software playback path; audible output from the television still needs
+user confirmation.
 
 Splore downloads require GNU Wget with OpenSSL HTTPS support and the system
 CA certificate bundle. The previous BusyBox Wget rejected HTTPS URLs outright.
@@ -258,6 +262,38 @@ Restore the normal kernel command line before testing the normal login
 sequence. Keep the splash script executable for normal operation; to disable
 it during diagnosis, rename it outside the `S??*` init-script pattern.
 
+## Animated cartridge splash
+
+The owner's `bootanim.p8` is the source artwork for the native psplash
+animation. `scripts/generate-bootanim.sh` extracts the 35x5 sprite and the
+eight bright/dark star-point colors; it rejects unsupported timing/layout
+changes rather than silently building a mismatched animation. The native C
+renderer ports the cartridge's 30 Hz reveal (36 frames), star appearance
+(frame 40) and clockwise dimming of two adjacent points (one step per four
+frames). The star cycle repeats without restarting the text reveal.
+
+The background is PICO-8 black (`cls(0)`), not dark blue. All colors use the
+original 16-color palette shared with the static kernel star. A 16-bit
+RGB565 framebuffer necessarily quantizes those RGB values; it cannot display
+every 24-bit palette entry exactly. The 128x128 canvas is centered and
+integer-scaled without interpolation (8x on 1080p).
+
+The package patch replaces the stock psplash logo. There is no separate
+animation daemon, PICO-8 runtime, video decoder or desktop involved.
+`S12psplash` starts after `S11modules` has loaded VC4, avoiding the
+firmware-framebuffer-to-KMS handover. `S99psplash-stop` sends `QUIT` and
+checks that the process has exited; the animation does not continue behind
+PICO-8 and adds no intentional minimum boot delay. Incremental builds remove
+the obsolete `S00psplash`. Existing roots need the new image to get this
+animation; hardware boot visibility still needs confirmation after rollout.
+
+Validation: `bash scripts/test-bootanim.sh` compares 108 complete frames,
+the bright/dark mapping, palette and both static kernel-star assets.
+`bash scripts/test-psplash-loop.sh CONFIGURED_PSPLASH_SOURCE` runs the
+patched production event loop against an in-memory 1080p framebuffer and
+checks timed drawing plus prompt FIFO-command exit, without touching a
+desktop framebuffer. Both tests also run in CI.
+
 ## Kernel boot logo
 
 The small per-CPU kernel logos use the bright, static star from the owner's
@@ -277,7 +313,7 @@ magick br2-external/board/zero2w/kernel-star.ppm \
 The external tree copies this image over `logo_linux_clut224.ppm` before
 kernel configuration. The kernel fragment enables the corresponding logo.
 The kernel's per-CPU logo count is unchanged (four on the Zero 2 W); the
-psplash image is independent and is not changed. An existing build needs
+later psplash animation uses the same palette and star geometry. An existing build needs
 `linux-reconfigure` followed by the normal image build to replace the compiled
 logo. The new logo still needs verification on hardware.
 

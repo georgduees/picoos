@@ -13,6 +13,11 @@ case "${1:-}" in
             echo "PICO-8 PID file exists; stop the service before starting it." >&2
             exit 1
         fi
+        if [ -r /sys/class/drm/card0-HDMI-A-1/status ] &&
+            [ "$(cat /sys/class/drm/card0-HDMI-A-1/status)" != connected ]; then
+            echo "PICO-8 cannot start: HDMI is disconnected; connect the display and start the service again." >&2
+            exit 1
+        fi
         start-stop-daemon -S -b -m -p "$pidfile" \
             -x /usr/sbin/picoos-pico8 -- -splore \
             </dev/tty1 >/var/log/pico8.log 2>&1

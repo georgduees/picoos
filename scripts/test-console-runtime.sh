@@ -58,7 +58,7 @@ kill() {
         test -e "$PICOOS_TEST_STATE/running"
 }
 EOF
-    sed -e "s|/run/|$work/run/|g" -e "s|/data/|$work/data/|g" \
+    sed -e "s|/run/|$work/run/|g" -e "s|/data/|$work/data/|g" -e "s|/sys/|$work/sys/|g" \
         -e "s|/var/log/|$work/log/|g" -e 's|/dev/tty1|/dev/null|g' \
         "$overlay/etc/init.d/S99start-pico8"
 } > "$work/service"
@@ -67,6 +67,15 @@ grep -Fq 'automatic start skipped' "$work/missing"
 test ! -f "$work/run/pico8.pid"
 touch "$work/data/pico8/pico8_dyn"
 chmod +x "$work/data/pico8/pico8_dyn"
+mkdir -p "$work/sys/class/drm/card0-HDMI-A-1"
+printf 'disconnected\n' > "$work/sys/class/drm/card0-HDMI-A-1/status"
+if sh "$work/service" start 2> "$work/display-missing"; then
+    echo "PICO-8 start without HDMI unexpectedly succeeded." >&2
+    exit 1
+fi
+grep -Fq 'HDMI is disconnected' "$work/display-missing"
+test ! -e "$work/run/pico8.pid"
+printf 'connected\n' > "$work/sys/class/drm/card0-HDMI-A-1/status"
 sh "$work/service" start
 grep -Fxq -- -splore "$work/daemon-arguments"
 test -e "$work/running"
@@ -90,6 +99,39 @@ if sh "$work/service" stop 2> "$work/invalid"; then
     exit 1
 fi
 grep -Fq 'Invalid PICO-8 PID' "$work/invalid"
+sed -e "s|/run/|$work/run/|g" -e "s|/dev/fb0|$work/missing-fb|g" \
+    -e 's|/usr/bin/psplash \&|/bin/true \&|' \
+    "$overlay/etc/init.d/S12psplash" > "$work/splash"
+if sh "$work/splash" start 2> "$work/splash-missing"; then
+    echo "Splash start without framebuffer unexpectedly succeeded." >&2
+    exit 1
+fi
+grep -Fq 'unavailable; check HDMI/KMS' "$work/splash-missing"
+test ! -e "$work/run/psplash.pid"
+sed "s|$work/missing-fb|/dev/null|g" "$work/splash" > "$work/splash-with-fb"
+if sh "$work/splash-with-fb" start 2> "$work/splash-exited"; then
+    echo "Exited splash unexpectedly reported a successful start." >&2
+    exit 1
+fi
+grep -Fq 'exited during startup' "$work/splash-exited"
+test ! -e "$work/run/psplash.pid"
+printf '1\n' > "$work/run/psplash.pid"
+if sh "$work/splash" stop 2> "$work/splash-invalid"; then
+    echo "Invalid splash PID unexpectedly accepted." >&2
+    exit 1
+fi
+grep -Fq 'Invalid psplash PID' "$work/splash-invalid"
+{
+    printf 'kill() { return 1; }\n'
+    cat "$work/splash"
+} > "$work/splash-stale"
+printf '4242\n' > "$work/run/psplash.pid"
+if sh "$work/splash-stale" stop 2> "$work/splash-stale-error"; then
+    echo "Stale splash PID unexpectedly reported a successful stop." >&2
+    exit 1
+fi
+grep -Fq 'removed stale PID file' "$work/splash-stale-error"
+test ! -e "$work/run/psplash.pid"
 grep -Fq 'console=tty3 quiet loglevel=3 logo.nologo vt.global_cursor_default=0' \
     "$project_dir/br2-external/board/zero2w/u-boot.env"
 grep -Fxq stdout=serial "$project_dir/br2-external/board/zero2w/u-boot.env"

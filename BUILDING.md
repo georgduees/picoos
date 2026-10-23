@@ -401,6 +401,32 @@ The saved Stadia pairing reconnected on an explicit BlueZ connect and
 exposed `js0`. The shared bootloader/configuration remain the separately
 installed, color-corrected versions described above.
 
+### Controller reconnect and display-unavailable checks
+
+Follow-up testing on the saved, trusted Stadia pairing confirmed native
+BlueZ reconnect without another `connect` call in three cases: an explicit
+`bluetoothctl disconnect`, a full `S40bluetoothd restart`, and a normal Pi
+reboot. Each restored `Connected: yes` and `/dev/input/js0`. BlueZ 5.79's
+HOG profile already has `auto_connect = true`; probing that profile restores
+the LE auto-connect list from the saved device services. No polling daemon,
+repeated discovery scans, hard-coded controller address or audio-oriented
+`ReconnectUUIDs` override is needed. This does not certify physical
+controller power-off/power-on or out-of-range recovery; those cases still
+need a separate hardware test.
+
+During that reboot test HDMI was disconnected. KMS consequently exposed
+no `/dev/fb0`, so neither the animation nor PICO-8 could run. Splash startup
+now explicitly rejects a missing framebuffer and checks for immediate
+process exit before writing its PID file. A stale PID is reported and
+removed on stop, rather than sending `QUIT` to a nonexistent reader. PICO-8
+reports a disconnected HDMI connector before launching, avoiding an empty
+game log as the only clue. These paths are covered by the console tests and
+were also checked on the Pi without a display. No forced HDMI mode or
+automatic retry loop has been added; after connecting the display, start
+`/etc/init.d/S99start-pico8 start` explicitly. Successful display-connected
+startup was verified in the earlier rollout; this follow-up does not claim
+a new visual or audio check.
+
 ## Interactive login dashboard
 
 The original PicoOS welcome screen is inspired by DietPi's compact system

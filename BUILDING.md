@@ -37,7 +37,8 @@ to hardware-supported parameters. No silent dummy fallback is configured.
 Use the television's 1:1/Just Scan mode; panel scaling can still soften
 the HDMI image if the panel is not native 1920x1080.
 After a restart, DRM devices and Bluetooth pairing were present without
-manual module loading; PICO-8 autostart is not yet implemented.
+manual module loading. PICO-8 now starts automatically through the service
+described under "Quiet console boot and PICO-8 startup".
 Shutdown tracing on 2026-10-23 showed a reboot hanging in `S11modules`,
 after network and Bluetooth services had stopped. The board's module service
 therefore loads configured modules at startup but does not unload them at
@@ -45,8 +46,9 @@ shutdown. The kernel handles device shutdown; restart/reload only ensures
 modules are loaded. Cold boots connected to WLAN automatically, whereas the
 hung shutdown never reached a new boot. WLAN boot/reconnect validation must
 be distinguished from this shutdown failure.
-The login getty runs only on `tty1`. A generic `/dev/console` getty would
-compete with it because the kernel console is also `tty1`, causing
+The login getty now runs only on `tty3`, separate from the game display.
+Previously it ran on `tty1`. A generic `/dev/console` getty would
+compete with an explicit getty on the same kernel console, causing
 `tcsetpgrp: Inappropriate ioctl for device` during startup.
 With the no-unload module service installed, two consecutive software reboots
 on the test Pi returned automatically to WLAN at `192.168.0.98`; Internet
@@ -285,7 +287,21 @@ firmware-framebuffer-to-KMS handover. `S99psplash-stop` sends `QUIT` and
 checks that the process has exited; the animation does not continue behind
 PICO-8 and adds no intentional minimum boot delay. Incremental builds remove
 the obsolete `S00psplash`. Existing roots need the new image to get this
-animation; hardware boot visibility still needs confirmation after rollout.
+animation.
+
+Hardware validation: the `6da18c1` root image was installed on slot B and
+confirmed stable after reboot. The subsequent no-clear correction was
+cross-compiled with the matching Bootlin ARMv6 hard-float toolchain and
+installed directly as `/usr/bin/psplash` on that root. Two locally captured
+1080p framebuffer snapshots matched the expected RGB565 palette and distinct
+star phases (5 and 7). Drawing only colored sprite pixels and overwriting
+the star points directly avoids black intermediate frames and unnecessary
+framebuffer writes. The framebuffer is cleared once at startup, not on every
+animation tick. This fbdev device does not support psplash double buffering;
+the normal single-buffer fallback remains in use. A subsequent normal reboot
+returned over WLAN on stable slot B with no remaining splash process or
+PID file. Visual confirmation of the complete boot sequence on the TV remains
+a user-side check; framebuffer checks do not establish perceived smoothness.
 
 Validation: `bash scripts/test-bootanim.sh` compares 108 complete frames,
 the bright/dark mapping, palette and both static kernel-star assets.
@@ -315,7 +331,79 @@ kernel configuration. The kernel fragment enables the corresponding logo.
 The kernel's per-CPU logo count is unchanged (four on the Zero 2 W); the
 later psplash animation uses the same palette and star geometry. An existing build needs
 `linux-reconfigure` followed by the normal image build to replace the compiled
-logo. The new logo still needs verification on hardware.
+logo.
+
+The early firmware framebuffer is separate from VC4/KMS. U-Boot 2026.04
+requests RGB byte order but describes it to Linux as `a8r8g8b8`, swapping
+red and blue in early console artwork. The board's U-Boot patch requests
+BGR byte order instead, matching the existing simplefb description. Artwork
+stays in the original PICO-8 palette; no compensating channel swap is applied
+to the PPM or to the later psplash renderer. A rootfs-only update does not
+replace U-Boot on the shared firmware partition.
+
+Hardware mailbox queries confirmed the mismatch before the fix
+(`pixel_order=1`, RGB; 32-bit depth) and the matching BGR order after it
+(`pixel_order=0`, 32-bit depth; simplefb still `a8r8g8b8`). The test card
+keeps the original `/u-boot.bin`; its firmware configuration selects the
+locally cross-built `/u-boot-rgb.bin` (SHA256
+`832846873a0ea3c9329b544d34d3c0938526cd20dfca1653b4e54f9463807135`).
+The previous shared configuration and bootloader were backed up under
+`/data` before rollout. Existing local GPU-memory/core-clock settings were
+preserved, not replaced with the image defaults.
+
+## Quiet console boot and PICO-8 startup
+
+Normal boots send U-Boot output to serial, disable the firmware rainbow
+splash and put the kernel console on tty3 with `quiet loglevel=3
+logo.nologo vt.global_cursor_default=0`. CPU-count logos remain compiled in
+for diagnostic boots but are hidden in normal console operation. Service
+output goes to `/var/log/boot.log`; kernel messages remain available through
+`dmesg`, and syslog in `/var/log/messages`. These logs are in RAM, avoiding ongoing
+SD-card writes. The single local getty is on tty3 (Ctrl+Alt+F3 with a keyboard);
+the board post-build removes Buildroot's automatically appended tty1 getty
+so it cannot overwrite the game display.
+
+After the health checks and splash shutdown, `S99start-pico8` starts the
+existing `/data/pico8/pico8_dyn` via the pixel-perfect ALSA launcher in
+Splore. Standard output/error go to `/var/log/pico8.log`, with tty1 used for
+input. The launcher explicitly requests `SDL_RENDER_VSYNC=1`, in addition
+to the previously observed SDL renderer `PRESENTVSYNC` flag (`0x4` in
+`0x0000000E`). Nearest-neighbor integer scaling remains enabled. This avoids
+tearing; it is not a claim of measured minimum input latency.
+There is no desktop or respawning launcher loop. Startup failures are
+reported in the boot log; an uninstalled proprietary runtime is explicitly
+reported and skipped rather than making the public image unbootable.
+Stopping the service sends SIGTERM and waits for exit so PICO-8 can save its
+configuration. Use `/etc/init.d/S99start-pico8 start|stop|restart`; do not
+start a second manual PICO-8 while the service is running.
+
+On the test Pi, a normal reboot with these shared boot settings returned
+over WLAN to stable slot B (`upgrade_available=0`), automatically started
+PICO-8 on active tty1, and left no splash process/PID file. The ALSA playback
+status was `RUNNING` with the PICO-8 PID as owner. A later service
+stop/start was also verified. The running process has
+`SDL_RENDER_VSYNC=1`, `SDL_RENDER_SCALE_QUALITY=0` and the ALSA/KMSDRM
+drivers. The root is still based on `6da18c1` with the corrected splash,
+launcher and console files installed directly; it is not a pristine later
+CI image. After a manual BlueZ reconnect, the persistent Stadia pairing was
+connected/trusted and exposed both `event2` and `js0`; automatic
+controller-initiated reconnect after power-on is not certified by that test.
+
+## Interactive login dashboard
+
+The original PicoOS welcome screen is inspired by DietPi's compact system
+overview, not copied from it. The interactive login profile invokes
+`picoos-motd` after authentication, for SSH and local shell logins. It shows
+host/kernel, running A/B slot, uptime, load averages, available-memory-based
+usage, CPU temperature and WLAN IPv4, followed by local service/log/update
+commands. Reads are local, with no Internet lookups or privileged changes.
+Color is used only on a suitable terminal, and `NO_COLOR` disables it.
+The stock `/etc/motd` is empty to avoid duplicate greetings. Noninteractive
+SSH commands and file transfers do not invoke the dashboard.
+
+`bash scripts/test-console-runtime.sh` checks deterministic dashboard values,
+noninteractive silence, start/stop failures and duplicate-start protection,
+quiet boot settings and the idempotent post-build getty/log configuration.
 
 ## Console font work in progress
 

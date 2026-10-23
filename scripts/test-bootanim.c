@@ -11,6 +11,9 @@ rectangle(void *context, int x, int y, int width, int height, unsigned color)
     unsigned char (*canvas)[128] = context;
     assert(x >= 0 && y >= 0 && x + width <= 128 && y + height <= 128);
     assert(width > 0 && height > 0 && color < 16);
+    /* The initialized framebuffer must not flash black between frames. */
+    if (context == pixels)
+        assert(color != 0);
     for (int row = y; row < y + height; row++)
         for (int column = x; column < x + width; column++)
             canvas[row][column] = color;

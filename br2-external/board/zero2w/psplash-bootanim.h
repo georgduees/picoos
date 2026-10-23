@@ -20,11 +20,11 @@ picoos_bootanim(void *context, PicoosRect rect, uint64_t frame)
     unsigned x, y, i;
     unsigned columns = frame >= 36 ? 35 : frame * 35 / 36;
 
-    rect(context, 36, 51, 70, 18, 0);
     for (y = 0; y < 5; y++)
         for (x = 0; x < columns; x++)
-            rect(context, 36 + x * 2, 59 + y * 2, 2, 2,
-                 picoos_logo[y][x]);
+            if (picoos_logo[y][x] != 0)
+                rect(context, 36 + x * 2, 59 + y * 2, 2, 2,
+                     picoos_logo[y][x]);
 
     if (frame < 40)
         return;

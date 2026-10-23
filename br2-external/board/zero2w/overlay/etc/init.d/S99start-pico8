@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+pidfile=/run/pico8.pid
+binary=/data/pico8/pico8_dyn
+case "${1:-}" in
+    start)
+        if [ ! -x "$binary" ]; then
+            echo "PICO-8 not installed at $binary; automatic start skipped." >&2
+            exit 0
+        fi
+        if [ -f "$pidfile" ]; then
+            echo "PICO-8 PID file exists; stop the service before starting it." >&2
+            exit 1
+        fi
+        start-stop-daemon -S -b -m -p "$pidfile" \
+            -x /usr/sbin/picoos-pico8 -- -splore \
+            </dev/tty1 >/var/log/pico8.log 2>&1
+        sleep 1
+        pid=$(cat "$pidfile")
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$pidfile"
+            echo "PICO-8 failed to start; see /var/log/pico8.log." >&2
+            exit 1
+        fi
+        ;;
+    stop)
+        if [ -f "$pidfile" ]; then
+            pid=$(cat "$pidfile")
+            case "$pid" in
+                ''|*[!0-9]*|0|1)
+                    echo "Invalid PICO-8 PID." >&2
+                    exit 1
+                    ;;
+            esac
+            if kill -0 "$pid" 2>/dev/null; then
+                start-stop-daemon -K -p "$pidfile" -x "$binary" -s TERM
+                for attempt in 1 2 3 4 5 6 7 8 9 10; do
+                    kill -0 "$pid" 2>/dev/null || break
+                    sleep 0.2
+                done
+                if kill -0 "$pid" 2>/dev/null; then
+                    echo "PICO-8 did not stop after SIGTERM." >&2
+                    exit 1
+                fi
+            fi
+            rm -f "$pidfile"
+        fi
+        ;;
+    restart)
+        "$0" stop
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac

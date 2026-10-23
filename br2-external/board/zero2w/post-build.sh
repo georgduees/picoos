@@ -13,3 +13,9 @@ install -m 0644 "$BR2_EXTERNAL_PICOOS_PATH/../assets/keys/swupdate-dev.pub" \
 rm -f "$TARGET_DIR/etc/init.d/S80swupdate"
 # An incremental build may retain the former pre-KMS splash service.
 rm -f "$TARGET_DIR/etc/init.d/S00psplash"
+# Keep boot output available without exposing service chatter on the display.
+sed -i '/^tty1::respawn:.*# HDMI console$/d' "$TARGET_DIR/etc/inittab"
+sed -i 's|::sysinit:/etc/init.d/rcS$|::sysinit:/etc/init.d/rcS >/var/log/boot.log 2>\&1|' \
+    "$TARGET_DIR/etc/inittab"
+# The interactive profile supplies the complete login dashboard.
+: > "$TARGET_DIR/etc/motd"

@@ -82,7 +82,8 @@ for path in usr/sbin/picoos-diagnostics usr/sbin/picoos-state usr/sbin/picoos-pi
     etc/init.d/S11modules etc/init.d/S12psplash etc/init.d/S99psplash-stop \
     etc/init.d/S30picoos-diagnostics etc/init.d/S35picoos-state \
     etc/init.d/S50dropbear etc/asound.conf \
-    etc/init.d/S99picoos-health \
+    etc/init.d/S99picoos-health etc/init.d/S99start-pico8 \
+    usr/sbin/picoos-motd etc/profile.d/picoos-motd.sh \
     etc/network/interfaces etc/avahi/avahi-daemon.conf; do
     debugfs -R "dump /$path $work/installed-file" "$work/images/rootfs.ext4"
     test -s "$work/installed-file"
@@ -105,7 +106,10 @@ cmp "$work/graphics-modules" \
     "$project_dir/br2-external/board/zero2w/overlay/etc/modules-load.d/graphics.conf"
 debugfs -R "dump /etc/inittab $work/inittab" "$work/images/rootfs.ext4"
 test "$(grep -c '^[^#].*:respawn:.*getty' "$work/inittab")" -eq 1
-grep -Eq '^tty1::respawn:.*getty.*tty1' "$work/inittab"
+grep -Eq '^tty3::respawn:.*getty.*tty3' "$work/inittab"
+grep -Fq '::sysinit:/etc/init.d/rcS >/var/log/boot.log 2>&1' "$work/inittab"
+debugfs -R "dump /etc/motd $work/motd" "$work/images/rootfs.ext4"
+test ! -s "$work/motd"
 
 for path in /etc/picoos-diagnostics-import /root/.ssh/authorized_keys \
     /etc/dropbear/dropbear_ed25519_host_key; do

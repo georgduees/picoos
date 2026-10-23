@@ -48,7 +48,16 @@ grep -Fq "/boot/overlays/vc4-kms-v3d.dtbo" "$project_dir/br2-external/board/zero
 grep -Fq "else true; fi" "$project_dir/br2-external/board/zero2w/u-boot.env"
 debugfs -R "dump /boot/overlays/vc4-kms-v3d.dtbo $work/slot-vc4-kms-v3d.dtbo" "$work/images/rootfs.ext4"
 cmp "$work/slot-vc4-kms-v3d.dtbo" "$work/images/rpi-firmware/overlays/vc4-kms-v3d.dtbo"
-debugfs -R "stat /usr/lib/dri/vc4_dri.so" "$work/images/rootfs.ext4" 2>/dev/null | grep -q "Type: regular file"
+# Mesa 26 installs the Gallium drivers in a shared library, not dri/vc4_dri.so.
+mesa_version=$(sed -n 's/^MESA3D_VERSION = //p' "$project_dir/buildroot/package/mesa3d/mesa3d.mk")
+test -n "$mesa_version"
+debugfs -R "stat /usr/lib/libgallium-$mesa_version.so" "$work/images/rootfs.ext4" \
+    > "$work/gallium-stat" 2>&1
+if ! grep -Eq 'Type:[[:space:]]*regular' "$work/gallium-stat"; then
+    cat "$work/gallium-stat" >&2
+    echo "Mesa Gallium runtime library missing from rootfs." >&2
+    exit 1
+fi
 
 debugfs -R 'stat /usr/lib/libSDL2-2.0.so.0' "$work/images/rootfs.ext4" \
     > "$work/sdl2-runtime-link" 2>&1

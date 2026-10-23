@@ -13,8 +13,9 @@ in this image. `pico8_gpio` additionally requires `libwiringPi.so`.
 The 64-bit `pico8_64` is not appropriate for this 32-bit userspace.
 `pico8_dyn` is the matching ARM hard-float variant but needs `libSDL2-2.0.so.0`.
 Buildroot builds SDL2 with KMS/DRM and Mesa Gallium VC4 for the Zero 2 W's
-VideoCore IV. U-Boot applies `vc4-kms-v3d.dtbo` to the slot-local DTB,
-exposing `/dev/dri/card0` without an X11/Wayland session. The firmware GPU
+VideoCore IV. U-Boot applies the slot-local KMS overlay and falls back to the
+original DTB on older slots without the overlay. New slots expose
+`/dev/dri/card0` without an X11/Wayland session. The firmware GPU
 reservation is 64 MiB; KMS uses CMA from system memory rather than requiring a
 large legacy GPU split. The active image before this change had only a firmware
 framebuffer and PICO-8 failed with `SDL Error: No available video device`.

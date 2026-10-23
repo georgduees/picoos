@@ -44,10 +44,8 @@ if grep -Eq 'miniuart-bt|btattach|ttyAMA0' "$project_dir/br2-external/board/zero
     echo "Bluetooth must stay on the PL011 UART (no miniuart overlay, btattach or ttyAMA0 console)." >&2
     exit 1
 fi
-if ! grep -Fq '/boot/overlays/vc4-kms-v3d.dtbo' "$project_dir/br2-external/board/zero2w/u-boot.env"; then
-    echo "U-Boot must apply the VC4 KMS overlay from the selected slot." >&2
-    exit 1
-fi
+grep -Fq "/boot/overlays/vc4-kms-v3d.dtbo" "$project_dir/br2-external/board/zero2w/u-boot.env"
+grep -Fq "else true; fi" "$project_dir/br2-external/board/zero2w/u-boot.env"
 debugfs -R "dump /boot/overlays/vc4-kms-v3d.dtbo $work/slot-vc4-kms-v3d.dtbo" "$work/images/rootfs.ext4"
 cmp "$work/slot-vc4-kms-v3d.dtbo" "$work/images/rpi-firmware/overlays/vc4-kms-v3d.dtbo"
 debugfs -R "stat /usr/lib/dri/vc4_dri.so" "$work/images/rootfs.ext4" 2>/dev/null | grep -q "Type: regular file"

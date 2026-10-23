@@ -46,9 +46,6 @@ jobs:
       - name: Test PICO-8 launcher
         run: bash scripts/test-pico8-launcher.sh
 
-      - name: Test console dashboard and automatic start
-        run: bash scripts/test-console-runtime.sh
-
       - name: Test cartridge boot animation
         run: bash scripts/test-bootanim.sh
 
@@ -104,6 +101,9 @@ jobs:
               DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
               CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
           fi
+
+      - name: Test console dashboard and automatic start
+        run: bash scripts/test-console-runtime.sh
 
       - name: Build image
         run: |

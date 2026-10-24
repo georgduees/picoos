@@ -1,0 +1,114 @@
+From: PicoOS developers
+
+Subject: [PATCH] Render the PicoOS cartridge animation at 30 Hz
+
+Upstream-Status: Inappropriate [PicoOS artwork and boot policy]
+
+diff --git a/psplash.c b/psplash.c
+index 261dd1c..7686207 100644
+--- a/psplash.c
++++ b/psplash.c
+@@ -15,6 +15,8 @@
+ #include "psplash-colors.h"
+ #include "psplash-poky-img.h"
+ #include "psplash-bar-img.h"
++#include "psplash-bootanim.h"
++#include <time.h>
+ #ifdef HAVE_SYSTEMD
+ #include <systemd/sd-daemon.h>
+ #endif
+@@ -98,6 +100,33 @@ psplash_draw_progress (PSplashFB *fb, int value)
+ }
+ #endif /* PSPLASH_SHOW_PROGRESS_BAR */
+ 
++static void
++picoos_draw_rect(void *context, int x, int y, int width, int height,
++                 unsigned color)
++{
++  PSplashFB *fb = context;
++  int scale = (fb->width < fb->height ? fb->width : fb->height) / 128;
++  if (scale < 1)
++    return;
++  psplash_fb_draw_rect(fb, (fb->width - 128 * scale) / 2 + x * scale,
++                      (fb->height - 128 * scale) / 2 + y * scale,
++                      width * scale, height * scale,
++                      picoos_palette[color][0],
++                      picoos_palette[color][1],
++                      picoos_palette[color][2]);
++}
++
++static uint64_t
++picoos_now_ns(void)
++{
++  struct timespec now;
++  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
++    perror("psplash: monotonic clock");
++    exit(EXIT_FAILURE);
++  }
++  return (uint64_t)now.tv_sec * 1000000000 + now.tv_nsec;
++}
++
+ static int 
+ parse_command (PSplashFB *fb, char *string)
+ {
+@@ -146,6 +175,10 @@ psplash_main (PSplashFB *fb, int pipe_fd, int timeout)
+   char          *end;
+   char          *cmd;
+   char           command[2048];
++  uint64_t       started = picoos_now_ns();
++  uint64_t       last_frame = UINT64_MAX;
++
++  (void)timeout;
+ 
+   tv.tv_sec = timeout;
+   tv.tv_usec = 0;
+@@ -157,10 +190,23 @@ psplash_main (PSplashFB *fb, int pipe_fd, int timeout)
+ 
+   while (1) 
+     {
+-      if (timeout != 0) 
+-	err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
+-      else
+-	err = select(pipe_fd+1, &descriptors, NULL, NULL, NULL);
++      uint64_t elapsed = picoos_now_ns() - started;
++      uint64_t frame = elapsed * 30 / 1000000000;
++      uint64_t next = ((frame + 1) * 1000000000 + 29) / 30;
++      if (frame != last_frame) {
++        picoos_bootanim(fb, picoos_draw_rect, frame);
++        psplash_fb_flip(fb, 0);
++        last_frame = frame;
++      }
++      elapsed = picoos_now_ns() - started;
++      tv.tv_sec = 0;
++      tv.tv_usec = next > elapsed ? (next - elapsed + 999) / 1000 : 0;
++      FD_ZERO(&descriptors);
++      FD_SET(pipe_fd, &descriptors);
++      err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
++
++      if (err == 0 || (err < 0 && errno == EINTR))
++        continue;
+       
+       if (err <= 0) 
+ 	{
+@@ -302,20 +348,7 @@ main (int argc, char** argv)
+   psplash_fb_draw_rect (fb, 0, 0, fb->width, fb->height,
+                         PSPLASH_BACKGROUND_COLOR);
+ 
+-  /* Draw the Poky logo  */
+-  psplash_fb_draw_image (fb, 
+-			 (fb->width  - POKY_IMG_WIDTH)/2, 
+-#if PSPLASH_IMG_FULLSCREEN
+-			 (fb->height - POKY_IMG_HEIGHT)/2,
+-#else
+-			 (fb->height * PSPLASH_IMG_SPLIT_NUMERATOR
+-			  / PSPLASH_IMG_SPLIT_DENOMINATOR - POKY_IMG_HEIGHT)/2,
+-#endif
+-			 POKY_IMG_WIDTH,
+-			 POKY_IMG_HEIGHT,
+-			 POKY_IMG_BYTES_PER_PIXEL,
+-			 POKY_IMG_ROWSTRIDE,
+-			 POKY_IMG_RLE_PIXEL_DATA);
++  picoos_bootanim(fb, picoos_draw_rect, 0);
+ 
+ #ifdef PSPLASH_SHOW_PROGRESS_BAR
+   /* Draw progress bar border */

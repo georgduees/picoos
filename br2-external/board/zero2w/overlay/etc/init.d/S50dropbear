@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    start|stop) /usr/sbin/picoos-diagnostics "$1" ;;
+    restart|reload)
+        /usr/sbin/picoos-diagnostics stop
+        /usr/sbin/picoos-diagnostics prepare
+        /usr/sbin/picoos-diagnostics start
+        ;;
+    *) echo "Usage: $0 {start|stop|restart|reload}" >&2; exit 1 ;;
+esac

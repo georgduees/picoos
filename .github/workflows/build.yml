@@ -1,0 +1,148 @@
+name: Build PicoOS image
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            bc build-essential ccache curl fdisk file libncurses-dev \
+            python3 rsync unzip wget
+
+      - name: Test WLAN credential handling
+        run: bash scripts/test-wifi-runtime.sh
+
+      - name: Test A/B slot guards
+        run: bash scripts/test-ab-runtime.sh
+
+      - name: Test module lifecycle
+        run: bash scripts/test-modules-runtime.sh
+
+      - name: Test PICO-8 launcher
+        run: bash scripts/test-pico8-launcher.sh
+
+      - name: Test cartridge boot animation
+        run: bash scripts/test-bootanim.sh
+
+      - name: Test console font conversion
+        run: bash scripts/test-console-font.sh
+
+      - name: Test performance baseline reporting
+        run: bash scripts/test-performance.sh
+
+      - name: Test deferred display startup
+        run: bash scripts/test-display-wait.sh
+
+      - name: Test opt-in diagnostic persistence
+        run: bash scripts/test-diagnostics-runtime.sh
+
+      - name: Identify compatible build environment
+        id: environment
+        run: |
+          fingerprint=$(
+            {
+              printf '%s\n' "$ImageVersion" "$GITHUB_WORKSPACE"
+              gcc --version
+              ldd --version
+              find br2-external/board/zero2w/overlay -printf '%P %y %m %l\n' | LC_ALL=C sort
+            } | sha256sum | cut -d ' ' -f 1
+          )
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+
+      - name: Restore incremental build
+        id: incremental
+        uses: actions/cache@v4
+        with:
+          path: output/
+          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'assets/fonts/**', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'assets/fonts/**', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
+
+      - name: Cache Buildroot downloads
+        uses: actions/cache@v4
+        with:
+          path: dl/
+          key: ${{ runner.os }}-buildroot-2026.05.3-${{ hashFiles('Makefile', 'br2-external/**', 'scripts/bootstrap-buildroot.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-buildroot-2026.05.3-
+
+      - name: Cache compiler
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/picoos-ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('Makefile', 'br2-external/**', 'scripts/bootstrap-buildroot.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Configure
+        run: |
+          if [ -f output/.config ]; then
+            make bootstrap
+            echo "Reusing compatible Buildroot output."
+          else
+            make configure \
+              OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
+              DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
+              CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+          fi
+
+      - name: Test console dashboard and automatic start
+        run: bash scripts/test-console-runtime.sh
+
+      - name: Build image
+        run: |
+          make -j2 build \
+            OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
+            DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
+            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+
+      - name: Report compiler cache statistics
+        if: always()
+        run: |
+          if [ -x output/host/bin/ccache ]; then
+            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache" output/host/bin/ccache --show-stats
+          fi
+
+      - name: Test animated psplash event loop
+        run: bash scripts/test-psplash-loop.sh output/build/psplash-53ae74a36bf17675228552abb927d2f981940a6a
+
+      - name: Test FAT32 image and provisioning checks
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/output/host/bin:${GITHUB_WORKSPACE}/output/host/sbin:${PATH}"
+          bash scripts/test-fat32-image.sh output/images
+
+      - name: Test Bluetooth runtime persistence
+        run: sh scripts/test-state-runtime.sh
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: picoos-zero2w-image
+          path: ${{ github.workspace }}/output/images/*
+          if-no-files-found: error
+          retention-days: 14

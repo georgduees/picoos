@@ -1,0 +1,11 @@
+auto lo
+iface lo inet loopback
+
+auto wlan0
+iface wlan0 inet dhcp
+    hostname pico8
+    wait-delay 10
+    pre-up /etc/network/pico8-wifi start
+    post-down /etc/network/pico8-wifi stop
+
+source /run/picoos-diagnostics/interfaces

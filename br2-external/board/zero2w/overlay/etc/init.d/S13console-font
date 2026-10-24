@@ -5,7 +5,7 @@ case "${1:-}" in
             echo "Console font deferred: no framebuffer is available." >&2
             exit 0
         fi
-        if ! /usr/sbin/loadfont < /usr/share/consolefonts/picoos.psf > /dev/tty3; then
+        if ! /usr/sbin/setfont -C /dev/tty3 /usr/share/consolefonts/picoos.psf; then
             echo "Failed to load PicoOS console font on tty3." >&2
             exit 1
         fi

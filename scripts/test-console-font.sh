@@ -51,3 +51,40 @@ if sh "$project_dir/scripts/generate-console-font.sh" "$work/invalid.fon" \
 fi
 grep -q 'Unsupported PICO-8 FON layout' "$work/error"
 test ! -s "$work/invalid.psf"
+
+overlay="$project_dir/br2-external/board/zero2w/overlay"
+mkdir -p "$work/bin" "$work/dev" "$work/fonts"
+printf fixture > "$work/fonts/picoos.psf"
+cat > "$work/bin/setfont" <<'EOF'
+#!/bin/sh
+set -eu
+test "$#" -eq 3
+test "$1" = -C
+test "$2" = "$PICOOS_FONT_TEST/dev/tty3"
+test "$3" = "$PICOOS_FONT_TEST/fonts/picoos.psf"
+printf invoked > "$PICOOS_FONT_TEST/setfont-called"
+exit "${PICOOS_FONT_TEST_FAIL:-0}"
+EOF
+chmod +x "$work/bin/setfont"
+export PICOOS_FONT_TEST="$work"
+sed -e "s|/usr/sbin/setfont|$work/bin/setfont|g" \
+    -e "s|/dev/tty3|$work/dev/tty3|g" \
+    -e "s|/usr/share/consolefonts|$work/fonts|g" \
+    -e "s|-c /dev/fb0|-c /dev/null|g" \
+    "$overlay/etc/init.d/S13console-font" > "$work/font-service"
+sh "$work/font-service" start
+test -f "$work/setfont-called"
+if PICOOS_FONT_TEST_FAIL=1 sh "$work/font-service" start 2> "$work/load-error"; then
+    echo "Font loader failure unexpectedly accepted." >&2
+    exit 1
+fi
+grep -Fq 'Failed to load PicoOS console font on tty3.' "$work/load-error"
+rm "$work/setfont-called"
+sed 's|-c /dev/null|-c /nonexistent/picoos-fb0|' \
+    "$work/font-service" > "$work/font-deferred"
+sh "$work/font-deferred" start 2> "$work/deferred"
+grep -Fq 'Console font deferred' "$work/deferred"
+test ! -e "$work/setfont-called"
+grep -Fxq CONFIG_SETFONT=y "$project_dir/br2-external/board/zero2w/busybox.fragment"
+grep -Fxq CONFIG_FEATURE_LOADFONT_PSF2=y "$project_dir/br2-external/board/zero2w/busybox.fragment"
+echo "Console font service passed: explicit tty3, loader failure and no-framebuffer deferral."

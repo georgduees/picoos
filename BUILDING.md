@@ -533,7 +533,10 @@ The build converts the 16x24 FNT resource to PSF2 without smoothing,
 rescaling or changing its glyph bits. The converter validates the expected
 resource layout and rejects unsupported input. The generated font is
 installed as `/usr/share/consolefonts/picoos.psf`; `S13console-font` loads it
-on diagnostic tty3 using BusyBox `loadfont`. It does not change PICO-8's
+on diagnostic tty3 using BusyBox `setfont -C /dev/tty3`. An explicit console
+is necessary: `loadfont` chooses the controlling/active console before stdout,
+so redirecting stdout to tty3 can silently change a different VT instead.
+It does not change PICO-8's
 own font or the remote SSH client's font. At 1080p the nominal cell grid is
 120 columns by 45 rows. The late-HDMI waiter loads it when a framebuffer
 becomes usable after boot.
@@ -606,11 +609,34 @@ its PID; starting the service again recreated the waiter without launching a
 game. The installed console font is 12,671 bytes, and its loader correctly
 reports deferral because no framebuffer exists yet.
 
-Physical HDMI connection after boot, successful font loading on the real
-framebuffer and live PICO-8 startup/scheduler measurements remain unverified:
-the connector still reports `disconnected`. The waiter is left active so
-connecting and switching on a display can exercise the real late-start path
-without another reboot. No new physical latency or gameplay result is claimed.
+After the owner changed the HDMI cable, the connector became `connected`
+without a Pi reboot. The waiter launched Splore exactly once and removed its
+PID file; the owner confirmed Splore appeared. The framebuffer is 1920x1080.
+Launch was requested at boot uptime 197.15 s and process liveness confirmed
+at 198.16 s. These are delayed-display launch times, not cold-boot duration or
+first-frame measurements.
+
+This exposed a font target bug: BusyBox `loadfont` succeeded but selected a
+different virtual console despite stdout being redirected to tty3. tty3
+remained at 240x67 cells. The service now uses `setfont -C /dev/tty3`, with
+`CONFIG_SETFONT` and PSF2 support enabled explicitly in the BusyBox fragment.
+For the immediate hardware correction, BusyBox 1.38.0 was built with the ARMv6
+toolchain from the source archive verified against Buildroot's SHA256, and
+installed separately as `/usr/sbin/setfont`, without replacing `/bin/busybox`.
+The corrected service and applet are installed persistently in slot B.
+Its real font load succeeds and tty3 reports exactly 120 columns by 45 rows,
+while the original Splore process remains alive. Regression tests check the
+explicit tty3 argument, font-loader failure propagation and deferred loading.
+The full `bda1c2e` CI builds predate this targeted correction; the correction
+has passed a cross-build, hardware loading and local font/runtime tests.
+
+A read-only 10.00 s Splore sample at boot uptime 216.56 s measured 42.4 C,
+17.69% main-thread CPU, 82.648 ms cumulative main-thread runqueue wait and
+8,184 timeslices. SDL KMSDRM, ALSA, nearest-neighbor scaling and VSync were
+confirmed in the running process environment. ALSA was `RUNNING` at 44100 Hz,
+period 2048 and buffer 4096: 46.44 ms period / 92.88 ms capacity.
+These scheduler and buffer measurements are not physical input-to-photon
+or end-to-end audio latency; neither has been measured.
 
 ## Private WLAN provisioning (bring-up)
 

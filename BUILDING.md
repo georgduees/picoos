@@ -572,7 +572,10 @@ scaling remain enabled; no speculative performance tuning has been applied.
 
 The deferred-display subprocess tests, state migration/conflict/space tests,
 all font bitmap/map tests, launcher tests and timing-report arithmetic pass
-locally. Hardware rollout of these changes is not yet verified: the test Pi
+locally. Both push (`40095781498`, 25m06s) and PR (`40095784601`) CI builds
+for `bda1c2e` passed, including the full image build, installed font/runtime
+checks, production splash loop and Bluetooth/PICO-8 state tests.
+Hardware rollout of these changes is not yet verified: the test Pi
 became unreachable during preparation. Before that, its current boot had no
 DRM device and logged firmware/VC4 mailbox timeouts, which waiting for a
 connector cannot repair. This must be distinguished from an ordinary

@@ -49,6 +49,15 @@ jobs:
       - name: Test cartridge boot animation
         run: bash scripts/test-bootanim.sh
 
+      - name: Test console font conversion
+        run: bash scripts/test-console-font.sh
+
+      - name: Test performance baseline reporting
+        run: bash scripts/test-performance.sh
+
+      - name: Test deferred display startup
+        run: bash scripts/test-display-wait.sh
+
       - name: Test opt-in diagnostic persistence
         run: bash scripts/test-diagnostics-runtime.sh
 
@@ -70,9 +79,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: output/
-          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'assets/fonts/**', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
+            build-v1-${{ steps.environment.outputs.fingerprint }}-${{ hashFiles('.github/workflows/build.yml', 'Makefile', 'bootanim.p8', 'assets/fonts/**', 'scripts/**', 'br2-external/**', '!br2-external/board/zero2w/overlay/**') }}-
 
       - name: Cache Buildroot downloads
         uses: actions/cache@v4

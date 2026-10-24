@@ -75,11 +75,65 @@ boot. The internal Bluetooth controller (BCM43436, firmware
 the in-kernel serdev driver, as on Raspberry Pi OS; the Linux console is
 therefore only on `tty1`, not on `ttyAMA0`. Attaching it through the mini-UART
 (`miniuart-bt`, `btattach`, `core_freq`) never got a response from the chip on
-this hardware and is not used. Persistent runtime state (currently BlueZ pairings, `/var/lib/bluetooth`) lives
-in a 16 MiB ext4 image, `/data/picoos-state.img`, which `/etc/init.d/S35picoos-state`
+this hardware and is not used. Persistent runtime state (BlueZ pairings,
+`/var/lib/bluetooth`, and the complete PICO-8 home, `/root/.lexaloffle`) lives
+in an ext4 image (128 MiB for new images), `/data/picoos-state.img`, which `/etc/init.d/S35picoos-state`
 (`picoos-state prepare`) creates on first boot and loop-mounts at `/persist`. FAT32
 itself cannot store Unix modes or names like `B8:27:EB:58:92:2E`. New persistent
-settings only need an entry in `LINKS` in `picoos-state`. Paired devices survive A/B slot updates. A Stadia
+settings only need an entry in `LINKS` in `picoos-state`. The links point to
+`/persist/bluetooth` and `/persist/pico8-home`; PICO-8 settings, BBS downloads,
+carts and saves stored within that home survive A/B slot updates, as do paired
+devices. Files stored outside that home are not covered by this link.
+The PICO-8 launcher prepares state before executing the game and fixes `HOME`
+to `/root`; a missing data mount or a conflicting home stops launch rather
+than silently writing new slot-local settings. An older root slot without
+these links still writes to its own root filesystem and must be migrated
+separately before relying on rollback persistence.
+
+Existing nonempty homes are **not** migrated automatically. For a local live
+migration (no image replacement or reformatting):
+
+1. Stop PICO-8 with `/etc/init.d/S99start-pico8 stop` and stop any manually
+   launched instance. Keep it stopped throughout copying. Verify `/data` is
+   the mounted FAT32 data partition and `/persist` is its loop-mounted ext4
+   image (`mount`); run `picoos-state prepare` if needed. It deliberately
+   refuses an existing populated `/root/.lexaloffle`.
+2. Back up `/root/.lexaloffle` and the existing persistent state to separate
+   storage while their writers are stopped (stop Bluetooth too when backing
+   up pairings). Do not copy a live, writable ext4 image as a consistent
+   backup; back up its mounted files or unmount it first. Check
+   `du -sk /root/.lexaloffle` and `df -Pk /persist`: existing images, including
+   older 16 MiB images, are reused unchanged, never automatically resized.
+   Migration requires free space of at least the source's KiB usage plus
+   16 MiB reserve, and refuses insufficient space before creating staging data.
+   The live 11.6 MiB home with only 13.7 MiB free in the old image therefore
+   needs an offline enlargement: back up the unmounted image and enlarge it
+   and its ext4 filesystem to 128 MiB on the host before migrating. New-image
+   defaults do not enlarge existing files; BBS downloads can still exhaust them.
+3. Run `picoos-state migrate-pico8`. It requires a real source directory and
+   an absent/empty destination, copies hidden files and Unix metadata into
+   `/persist/.pico8-home.migrating`, syncs and publishes the complete copy,
+   then keeps the original as `/root/.lexaloffle.picoos-backup` and installs
+   the symlink. It never merges or overwrites destination data or an existing
+   backup, and does not migrate/change Bluetooth data.
+4. Verify `readlink /root/.lexaloffle` is `/persist/pico8-home` and compare
+   `diff -r /root/.lexaloffle.picoos-backup /persist/pico8-home` before
+   restarting PICO-8. Retain the backup externally as well: the root-local
+   backup itself is not update-safe. Run `picoos-state prepare` again and
+   restart the stopped services only after resolving any errors.
+
+On copy failure (including no space), the original remains untouched and
+the staging directory is retained for inspection; a retry refuses that
+directory until it is explicitly archived/removed. If power fails after
+publication, inspect the original/backup, destination and link before
+resuming: never delete a populated destination simply to force migration.
+For two populated copies, archive both and reconcile them explicitly offline,
+choosing a complete authoritative home without blind overwrite. The same
+explicit process applies to any old slot-local home after rollback.
+`scripts/test-state-runtime.sh` exercises the links, A/B-root reuse, explicit
+migration, preserved originals/pairings and refusal of conflicts/copy failure
+locally; its simulated mount does not certify hardware power-loss behavior.
+A Stadia
 controller (Bluetooth firmware mode) has been paired and read via
 `/dev/input/js0` on hardware; the VC4 HDMI ALSA device is present.
 The local PICO-8 binary remains user-supplied data and is never copied into
@@ -410,22 +464,43 @@ reboot. Each restored `Connected: yes` and `/dev/input/js0`. BlueZ 5.79's
 HOG profile already has `auto_connect = true`; probing that profile restores
 the LE auto-connect list from the saved device services. No polling daemon,
 repeated discovery scans, hard-coded controller address or audio-oriented
-`ReconnectUUIDs` override is needed. This does not certify physical
-controller power-off/power-on or out-of-range recovery; those cases still
-need a separate hardware test.
+`ReconnectUUIDs` override is needed.
+
+On 2026-10-24 the owner also confirmed successful operation after the
+requested physical controller power-off/power-on test, without pairing mode.
+No manual connect command was issued during that test. A subsequent
+read-only check confirmed `Connected: yes`, `Trusted: yes` and
+`/dev/input/js0` present (battery 32%). Physical power-cycle reconnect is
+therefore verified as well; out-of-range recovery remains untested.
 
 During that reboot test HDMI was disconnected. KMS consequently exposed
 no `/dev/fb0`, so neither the animation nor PICO-8 could run. Splash startup
 now explicitly rejects a missing framebuffer and checks for immediate
 process exit before writing its PID file. A stale PID is reported and
 removed on stop, rather than sending `QUIT` to a nonexistent reader. PICO-8
-reports a disconnected HDMI connector before launching, avoiding an empty
-game log as the only clue. These paths are covered by the console tests and
-were also checked on the Pi without a display. No forced HDMI mode or
-automatic retry loop has been added; after connecting the display, start
-`/etc/init.d/S99start-pico8 start` explicitly. Successful display-connected
-startup was verified in the earlier rollout; this follow-up does not claim
-a new visual or audio check.
+previously reported a disconnected HDMI connector and required an explicit
+manual service start. Those failure paths were checked on the Pi without
+a display; the newer deferred-start behavior is described below.
+
+### Display connected after boot
+
+If the runtime is installed but HDMI is not usable, `S99start-pico8 start`
+now creates a background one-shot waiter and returns immediately. Readiness
+requires connector `connected` plus at least one advertised mode. This also
+handles a DRM connector that has not appeared yet. The waiter checks once
+per second only until readiness, loads the console font and launches Splore
+once. It then exits; there is no watcher or polling overhead while playing,
+no forced display mode, and no respawn after normal game exit. An already
+running game is not restarted on HDMI changes. This is startup handling,
+not a guarantee that SDL recovers an unplugged display during gameplay.
+
+`stop` cancels any waiter before stopping the game, so connecting a display
+after an explicit stop does not start PICO-8 unexpectedly. A failed launch
+is reported in `/var/log/pico8.log` and is not retried indefinitely.
+`/run/pico8-display-wait.pid` identifies the pending wait; only a started
+game gets `/run/pico8.pid`. Tests cover missing/mode-less connectors,
+readiness changes, cancellation with a real subprocess and exactly-once
+launch without respawn.
 
 ## Interactive login dashboard
 
@@ -443,7 +518,7 @@ SSH commands and file transfers do not invoke the dashboard.
 noninteractive silence, start/stop failures and duplicate-start protection,
 quiet boot settings and the idempotent post-build getty/log configuration.
 
-## Console font work in progress
+## Console font
 
 The selected font is PICO-8 ROM Mono from
 <https://github.com/juanitogan/p8-programming-fonts>, revision
@@ -454,7 +529,64 @@ It is included as `assets/fonts/p8-rom-mono.fon`. The project owner confirmed
 on 2026-10-21 that permission for use and redistribution has been cleared.
 This records the owner's confirmation, not an independently verified
 upstream license or a change of the font's license.
-The font is not yet wired into the console or the image build.
+The build converts the 16x24 FNT resource to PSF2 without smoothing,
+rescaling or changing its glyph bits. The converter validates the expected
+resource layout and rejects unsupported input. The generated font is
+installed as `/usr/share/consolefonts/picoos.psf`; `S13console-font` loads it
+on diagnostic tty3 using BusyBox `loadfont`. It does not change PICO-8's
+own font or the remote SSH client's font. At 1080p the nominal cell grid is
+120 columns by 45 rows. The late-HDMI waiter loads it when a framebuffer
+becomes usable after boot.
+
+Only printable ASCII is mapped as Unicode. The source uses a custom
+PICO-8 character arrangement; claiming it is Latin-1/Windows-1252 would
+misrender unrelated characters. Extended Unicode, including German umlauts,
+is not certified by this font. All 256 bitmaps are retained, but unmapped
+glyphs are not assigned invented Unicode values. The independent conversion
+test compares every bitmap byte and the complete ASCII mapping, and image
+tests compare the generated font with the installed copy.
+
+## Boot and software latency baseline
+
+Run `sh scripts/measure-pico8.sh 10` on the Pi (or send the script through
+SSH stdin with `sh -s -- 10`). This is read-only; it does not switch governor,
+disable VSync, read typed keys or change audio buffers. The updated service
+records launch-request and process-verification times since kernel boot in
+`/run/pico8-start-timing`. Verification includes a one-second liveness check;
+neither timestamp measures the first visible frame or firmware power-on.
+
+The report includes main-thread CPU usage and cumulative runqueue wait over
+a measured interval if kernel scheduler counters are exposed. These are
+not total-process CPU or controller input-to-photon latency. ALSA hardware
+period/buffer sizes are converted to milliseconds; capacity is not measured
+audio latency. The earlier hardware baseline was 44100 Hz, period 2048 and
+buffer 4096 (46.44 ms period / 92.88 ms capacity). The nominal 60 Hz display
+interval is 16.67 ms; do not report that as measured input latency.
+
+Physical end-to-end input latency requires a synchronized external capture
+(for example a high-speed camera showing a button/LED and the display).
+No such measurement has been performed. VSync and integer nearest-neighbor
+scaling remain enabled; no speculative performance tuning has been applied.
+
+### Current validation boundary (2026-10-24)
+
+The deferred-display subprocess tests, state migration/conflict/space tests,
+all font bitmap/map tests, launcher tests and timing-report arithmetic pass
+locally. Hardware rollout of these changes is not yet verified: the test Pi
+became unreachable during preparation. Before that, its current boot had no
+DRM device and logged firmware/VC4 mailbox timeouts, which waiting for a
+connector cannot repair. This must be distinguished from an ordinary
+disconnected HDMI cable.
+
+For a consistent private state backup, Bluetooth was stopped and `/persist`
+unmounted. The untouched original 16 MiB state image was read off-device,
+checked with `e2fsck`, and a separate copy enlarged to 128 MiB and checked
+again. No replacement was transferred, no PICO-8 home migration was run and
+no new runtime files were installed before connectivity was lost. A normal
+boot of the existing root mounts the original image and starts Bluetooth
+again. Private state backups contain pairing keys and must never be committed
+or published. The new font has not yet been loaded on the Pi, and there are
+no new live startup/scheduler measurements to report.
 
 ## Private WLAN provisioning (bring-up)
 

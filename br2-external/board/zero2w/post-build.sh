@@ -19,3 +19,7 @@ sed -i 's|::sysinit:/etc/init.d/rcS$|::sysinit:/etc/init.d/rcS >/var/log/boot.lo
     "$TARGET_DIR/etc/inittab"
 # The interactive profile supplies the complete login dashboard.
 : > "$TARGET_DIR/etc/motd"
+install -d "$TARGET_DIR/usr/share/consolefonts"
+sh "$BR2_EXTERNAL_PICOOS_PATH/../scripts/generate-console-font.sh" \
+    "$BR2_EXTERNAL_PICOOS_PATH/../assets/fonts/p8-rom-mono.fon" \
+    > "$TARGET_DIR/usr/share/consolefonts/picoos.psf"

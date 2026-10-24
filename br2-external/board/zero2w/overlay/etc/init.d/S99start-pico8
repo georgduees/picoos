@@ -3,33 +3,82 @@ set -eu
 
 pidfile=/run/pico8.pid
 binary=/data/pico8/pico8_dyn
+waitfile=/run/pico8-display-wait.pid
+
+display_ready() {
+    [ -r /sys/class/drm/card0-HDMI-A-1/status ] &&
+        [ "$(cat /sys/class/drm/card0-HDMI-A-1/status)" = connected ] &&
+        grep -q . /sys/class/drm/card0-HDMI-A-1/modes
+}
+
+launch() {
+    read -r uptime idle < /proc/uptime
+    printf 'launch_requested_boot_seconds=%s\n' "$uptime" > /run/pico8-start-timing
+    start-stop-daemon -S -b -m -p "$pidfile" \
+        -x /usr/sbin/picoos-pico8 -- -splore \
+        </dev/tty1 >/var/log/pico8.log 2>&1
+    sleep 1
+    pid=$(cat "$pidfile")
+    if ! kill -0 "$pid" 2>/dev/null; then
+        rm -f "$pidfile"
+        echo "PICO-8 failed to start; see /var/log/pico8.log." >&2
+        return 1
+    fi
+    read -r uptime idle < /proc/uptime
+    printf 'process_verified_boot_seconds=%s\n' "$uptime" >> /run/pico8-start-timing
+}
+
 case "${1:-}" in
     start)
         if [ ! -x "$binary" ]; then
             echo "PICO-8 not installed at $binary; automatic start skipped." >&2
             exit 0
         fi
-        if [ -f "$pidfile" ]; then
+        if [ -f "$pidfile" ] || [ -f "$waitfile" ]; then
             echo "PICO-8 PID file exists; stop the service before starting it." >&2
             exit 1
         fi
-        if [ -r /sys/class/drm/card0-HDMI-A-1/status ] &&
-            [ "$(cat /sys/class/drm/card0-HDMI-A-1/status)" != connected ]; then
-            echo "PICO-8 cannot start: HDMI is disconnected; connect the display and start the service again." >&2
-            exit 1
+        if ! display_ready; then
+            echo "PICO-8 waiting for a usable HDMI display."
+            start-stop-daemon -S -b -m -p "$waitfile" \
+                -x /etc/init.d/S99start-pico8 -- wait-display \
+                </dev/null >>/var/log/pico8.log 2>&1
+            exit 0
         fi
-        start-stop-daemon -S -b -m -p "$pidfile" \
-            -x /usr/sbin/picoos-pico8 -- -splore \
-            </dev/tty1 >/var/log/pico8.log 2>&1
-        sleep 1
-        pid=$(cat "$pidfile")
-        if ! kill -0 "$pid" 2>/dev/null; then
-            rm -f "$pidfile"
-            echo "PICO-8 failed to start; see /var/log/pico8.log." >&2
-            exit 1
-        fi
+        launch
+        ;;
+    wait-display)
+        trap 'rm -f "$waitfile"' EXIT
+        trap 'exit 0' TERM INT
+        while ! display_ready; do
+            sleep 1
+        done
+        echo "HDMI display ready; starting PICO-8."
+        /etc/init.d/S13console-font start
+        launch
         ;;
     stop)
+        if [ -f "$waitfile" ]; then
+            pid=$(cat "$waitfile")
+            case "$pid" in
+                ''|*[!0-9]*|0|1)
+                    echo "Invalid PICO-8 display-wait PID." >&2
+                    exit 1
+                    ;;
+            esac
+            if kill -0 "$pid" 2>/dev/null; then
+                start-stop-daemon -K -p "$waitfile" -s TERM
+                for attempt in 1 2 3 4 5 6 7 8 9 10; do
+                    kill -0 "$pid" 2>/dev/null || break
+                    sleep 0.2
+                done
+                if kill -0 "$pid" 2>/dev/null; then
+                    echo "PICO-8 display waiter did not stop." >&2
+                    exit 1
+                fi
+            fi
+            rm -f "$waitfile"
+        fi
         if [ -f "$pidfile" ]; then
             pid=$(cat "$pidfile")
             case "$pid" in

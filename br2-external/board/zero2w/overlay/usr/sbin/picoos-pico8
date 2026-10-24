@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+/usr/sbin/picoos-state prepare
+export HOME=/root
 cd /data/pico8
 export SDL_VIDEODRIVER=kmsdrm
 export SDL_AUDIODRIVER=alsa

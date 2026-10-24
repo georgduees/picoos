@@ -39,6 +39,13 @@ set -eu
 printf '%s\n' "$@" > "$PICOOS_TEST_STATE/daemon-arguments"
 case "$1" in
     -S)
+        case "$*" in
+            *wait-display*)
+                printf '4242\n' > "$PICOOS_TEST_STATE/run/pico8-display-wait.pid"
+                touch "$PICOOS_TEST_STATE/running"
+                exit 0
+                ;;
+        esac
         printf '4242\n' > "$PICOOS_TEST_STATE/run/pico8.pid"
         if [ "${PICOOS_TEST_FAIL_START:-0}" = 0 ]; then
             touch "$PICOOS_TEST_STATE/running"
@@ -60,8 +67,11 @@ kill() {
 EOF
     sed -e "s|/run/|$work/run/|g" -e "s|/data/|$work/data/|g" -e "s|/sys/|$work/sys/|g" \
         -e "s|/var/log/|$work/log/|g" -e 's|/dev/tty1|/dev/null|g' \
+        -e "s|/etc/init.d/S13console-font|$work/bin/console-font|g" \
         "$overlay/etc/init.d/S99start-pico8"
 } > "$work/service"
+printf '#!/bin/sh\nexit 0\n' > "$work/bin/console-font"
+chmod +x "$work/bin/console-font"
 sh "$work/service" start 2> "$work/missing"
 grep -Fq 'automatic start skipped' "$work/missing"
 test ! -f "$work/run/pico8.pid"
@@ -69,13 +79,14 @@ touch "$work/data/pico8/pico8_dyn"
 chmod +x "$work/data/pico8/pico8_dyn"
 mkdir -p "$work/sys/class/drm/card0-HDMI-A-1"
 printf 'disconnected\n' > "$work/sys/class/drm/card0-HDMI-A-1/status"
-if sh "$work/service" start 2> "$work/display-missing"; then
-    echo "PICO-8 start without HDMI unexpectedly succeeded." >&2
-    exit 1
-fi
-grep -Fq 'HDMI is disconnected' "$work/display-missing"
+sh "$work/service" start > "$work/display-missing"
+grep -Fq 'waiting for a usable HDMI' "$work/display-missing"
 test ! -e "$work/run/pico8.pid"
+test -e "$work/run/pico8-display-wait.pid"
+sh "$work/service" stop
+test ! -e "$work/run/pico8-display-wait.pid"
 printf 'connected\n' > "$work/sys/class/drm/card0-HDMI-A-1/status"
+printf '1920x1080\n' > "$work/sys/class/drm/card0-HDMI-A-1/modes"
 sh "$work/service" start
 grep -Fxq -- -splore "$work/daemon-arguments"
 test -e "$work/running"
@@ -99,6 +110,32 @@ if sh "$work/service" stop 2> "$work/invalid"; then
     exit 1
 fi
 grep -Fq 'Invalid PICO-8 PID' "$work/invalid"
+rm "$work/run/pico8.pid"
+# An attached display without modes is not usable yet.
+: > "$work/sys/class/drm/card0-HDMI-A-1/modes"
+sh "$work/service" start > "$work/no-modes"
+test -e "$work/run/pico8-display-wait.pid"
+sh "$work/service" stop
+# Exercise the real waiting loop: readiness appears after two checks.
+cat > "$work/bin/sleep" <<'EOF'
+#!/bin/sh
+set -eu
+count=0
+[ ! -f "$PICOOS_TEST_STATE/sleep-count" ] || count=$(cat "$PICOOS_TEST_STATE/sleep-count")
+count=$((count + 1))
+printf '%s\n' "$count" > "$PICOOS_TEST_STATE/sleep-count"
+if [ "$count" -eq 2 ]; then
+    printf '1920x1080\n' > "$PICOOS_TEST_STATE/sys/class/drm/card0-HDMI-A-1/modes"
+fi
+EOF
+printf '4242\n' > "$work/run/pico8-display-wait.pid"
+sh "$work/service" wait-display > "$work/display-ready"
+grep -Fq 'HDMI display ready' "$work/display-ready"
+test ! -e "$work/run/pico8-display-wait.pid"
+test -e "$work/run/pico8.pid"
+test "$(cat "$work/sleep-count")" -eq 3
+sh "$work/service" stop
+printf '#!/bin/sh\nexit 0\n' > "$work/bin/sleep"
 sed -e "s|/run/|$work/run/|g" -e "s|/dev/fb0|$work/missing-fb|g" \
     -e 's|/usr/bin/psplash \&|/bin/true \&|' \
     "$overlay/etc/init.d/S12psplash" > "$work/splash"

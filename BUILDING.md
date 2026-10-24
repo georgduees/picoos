@@ -575,21 +575,42 @@ all font bitmap/map tests, launcher tests and timing-report arithmetic pass
 locally. Both push (`40095781498`, 25m06s) and PR (`40095784601`) CI builds
 for `bda1c2e` passed, including the full image build, installed font/runtime
 checks, production splash loop and Bluetooth/PICO-8 state tests.
-Hardware rollout of these changes is not yet verified: the test Pi
-became unreachable during preparation. Before that, its current boot had no
-DRM device and logged firmware/VC4 mailbox timeouts, which waiting for a
-connector cannot repair. This must be distinguished from an ordinary
-disconnected HDMI cable.
+After the owner restarted the Pi, the VC4 DRM connector initialized normally.
+The preceding boot had logged firmware/VC4 mailbox timeouts and lacked DRM;
+that driver initialization failure is distinct from an ordinary disconnected
+HDMI cable and cannot be repaired by the display waiter.
 
-For a consistent private state backup, Bluetooth was stopped and `/persist`
-unmounted. The untouched original 16 MiB state image was read off-device,
-checked with `e2fsck`, and a separate copy enlarged to 128 MiB and checked
-again. No replacement was transferred, no PICO-8 home migration was run and
-no new runtime files were installed before connectivity was lost. A normal
-boot of the existing root mounts the original image and starts Bluetooth
-again. Private state backups contain pairing keys and must never be committed
-or published. The new font has not yet been loaded on the Pi, and there are
-no new live startup/scheduler measurements to report.
+Hardware rollout of `bda1c2e` is now verified through installation and boot:
+the signed root update was written to slot B, read-back verified, booted and
+confirmed by local health checks (`boot_slot=B`, `stable_slot=B`,
+`upgrade_available=0`). Installed launcher, state helper, display service and
+font-loader hashes match the repository.
+
+Before migration, both PICO-8 and Bluetooth were stopped and `/persist`
+unmounted. A fresh private backup of the current 16 MiB state image was taken
+after the restart, rather than reusing the older snapshot. A separate copy
+was enlarged offline to 128 MiB, checked with `e2fsck`, transferred and
+hash-verified before activation. The original state image remains backed up
+on the data partition and off-device. `picoos-state migrate-pico8` completed,
+retaining the original home in slot A as `.lexaloffle.picoos-backup`.
+After booting slot B, all 347 regular PICO-8 files were checksum-compared
+against that original backup with no differences. The new root uses
+`/root/.lexaloffle -> /persist/pico8-home`; Bluetooth still uses its existing
+persistent link. The Stadia controller remains paired, bonded and trusted
+(not connected during this check). Private state backups contain pairing
+keys and must never be committed or published.
+
+The real Pi booted with HDMI disconnected and created a live one-shot display
+waiter without starting PICO-8. Service stop cancelled the waiter and removed
+its PID; starting the service again recreated the waiter without launching a
+game. The installed console font is 12,671 bytes, and its loader correctly
+reports deferral because no framebuffer exists yet.
+
+Physical HDMI connection after boot, successful font loading on the real
+framebuffer and live PICO-8 startup/scheduler measurements remain unverified:
+the connector still reports `disconnected`. The waiter is left active so
+connecting and switching on a display can exercise the real late-start path
+without another reboot. No new physical latency or gameplay result is claimed.
 
 ## Private WLAN provisioning (bring-up)
 

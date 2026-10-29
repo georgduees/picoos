@@ -1180,6 +1180,10 @@ Additional host tests:
   checking success return values as well as slot identities. Requires the
   matching sandbox `.config` and `arch/sandbox/dts/sandbox.dtb`; unlike a
   Bash-based mock this catches the false-condition return-status regression.
+  Rebuilt from the local U-Boot 2026.04 source on 2026-10-29 with
+  `CONFIG_HUSH_OLD_PARSER=y`; valid A/B selection and interrupted, failed and
+  invalid-slot rollback cases all passed. This exercises the boot selector,
+  not SD-card power-loss behavior during raw writes or environment saves.
 - `bash scripts/test-swu.sh /path/to/rootfs.ext4 provisioning/local/update-signing/dev.key /path/to/native/swupdate`:
   genuine SWUpdate check-only verification of both slot manifests and negative
   signature/payload/board tests. Use a native SWUpdate build with socket paths

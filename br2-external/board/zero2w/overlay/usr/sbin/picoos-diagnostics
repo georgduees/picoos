@@ -1,0 +1,211 @@
+#!/bin/sh
+set -eu
+umask 077
+
+fail() { echo "PicoOS diagnostics: $*" >&2; exit 1; }
+store=/data/diagnostics
+runtime=/run/picoos-diagnostics
+import=/etc/picoos-diagnostics-import
+version=picoos-diagnostics-v1
+stage=
+
+[ "$(id -u)" -eq 0 ] || fail "root privileges required."
+[ "$#" -ge 1 ] || fail "usage: picoos-diagnostics prepare|start|stop|check|enable [PUBLIC_KEY [HOST_KEY]]|disable"
+action=$1
+shift
+case "$action:$#" in
+    prepare:0|start:0|stop:0|check:0|disable:0|enable:0|enable:1|enable:2) ;;
+    *) fail "invalid command or argument count." ;;
+esac
+mkdir /run/picoos-diagnostics.lock || fail "another diagnostics operation is running."
+cleanup() {
+    [ -z "$stage" ] || rm -rf -- "$stage"
+    rmdir /run/picoos-diagnostics.lock
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+private_file() {
+    [ -f "$1" ] && [ -s "$1" ] && [ ! -L "$1" ] ||
+        fail "missing or nonregular file: $1"
+    case "$(stat -c '%u:%a' "$1")" in
+        0:600|0:700) ;;
+        *) fail "file must be root-owned and private (0600 or FAT32 0700): $1" ;;
+    esac
+}
+private_dir() {
+    [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u:%a' "$1")" = 0:700 ] ||
+        fail "directory must be real, root-owned and mode 0700: $1"
+}
+check_data() {
+    [ ! -L /data ] || fail "/data must not be a symlink."
+    awk '$1 == "/dev/mmcblk0p4" && $2 == "/data" && $3 == "vfat" && $4 ~ /(^|,)rw(,|$)/ { found=1 } END { exit !found }' /proc/mounts ||
+        fail "expected writable FAT32 p4 at /data."
+    private_dir /data
+    [ ! -L "$store" ] || fail "persistent directory is a symlink."
+    if [ -e "$store" ]; then private_dir "$store"; fi
+}
+authorized_key() {
+    private_file "$1"
+    awk '
+        /^[[:space:]]*(#|$)/ { next }
+        $1 != "ssh-ed25519" || length($2) != 68 ||
+        $2 !~ /^[A-Za-z0-9+\/]+$/ ||
+        index($2, "AAAAC3NzaC1lZDI1NTE5AAAAI") != 1 ||
+        substr($2, 26, 1) !~ /^[A-P]$/ { exit 1 }
+        { count++ }
+        END { if (!count) exit 1 }
+    ' "$1" || fail "expected plain Ed25519 public keys without authorized_keys options: $1"
+}
+host_key() {
+    private_file "$1"
+    public=$(dropbearkey -y -f "$1") || fail "invalid Dropbear host key."
+    printf '%s\n' "$public" | grep -q '^ssh-ed25519 ' ||
+        fail "host key must be Ed25519."
+}
+enabled() {
+    if [ ! -e "$store/enabled" ] && [ ! -L "$store/enabled" ]; then return 1; fi
+    private_file "$store/enabled"
+    [ "$(cat "$store/enabled")" = "$version" ] || fail "unsupported diagnostics format."
+}
+validate_store() {
+    authorized_key "$store/authorized_keys"
+    host_key "$store/dropbear_ed25519_host_key"
+}
+check_prepared() {
+    private_dir "$runtime"
+    private_file "$runtime/ready"
+    [ "$(cat "$runtime/ready")" = "$version" ] || fail "preparation did not complete."
+    validate_store
+    authorized_key "$runtime/authorized_keys"
+    host_key "$runtime/dropbear_ed25519_host_key"
+    cmp "$store/authorized_keys" "$runtime/authorized_keys" &&
+        cmp "$store/dropbear_ed25519_host_key" "$runtime/dropbear_ed25519_host_key" ||
+        fail "persistent keys changed; prepare again before starting SSH."
+    [ -L /root/.ssh/authorized_keys ] &&
+        [ "$(readlink /root/.ssh/authorized_keys)" = "$runtime/authorized_keys" ] ||
+        fail "root authorized_keys is not the prepared RAM link."
+}
+enable_store() {
+    if [ -e "$store" ]; then
+        [ "$#" -eq 0 ] || fail "store already exists; edit its keys explicitly or enable without arguments."
+        if [ -e "$store/enabled" ] || [ -L "$store/enabled" ]; then
+            enabled || fail "invalid existing enable marker."
+        fi
+        validate_store
+    else
+        [ "$#" -ge 1 ] || fail "first enable requires an explicit public-key file."
+        authorized_key "$1"
+        stage=$(mktemp -d /data/.diagnostics.XXXXXX)
+        cp "$1" "$stage/authorized_keys"
+        if [ "$#" -eq 2 ]; then
+            host_key "$2"
+            cp "$2" "$stage/dropbear_ed25519_host_key"
+        else
+            dropbearkey -t ed25519 -f "$stage/dropbear_ed25519_host_key" >/dev/null ||
+                fail "host-key generation failed."
+            rm -f "$stage/dropbear_ed25519_host_key.pub"
+        fi
+        host_key "$stage/dropbear_ed25519_host_key"
+        mv "$stage" "$store"
+        stage=
+    fi
+    sync
+    printf '%s\n' "$version" > "$store/.enabled-new"
+    mv "$store/.enabled-new" "$store/enabled"
+    sync
+    echo "PicoOS diagnostics enabled persistently; applies on next boot."
+}
+clear_runtime() {
+    if [ -e "$runtime" ] || [ -L "$runtime" ]; then
+        private_dir "$runtime"
+    else
+        mkdir -m 700 "$runtime"
+    fi
+    rm -f "$runtime/ready" "$runtime/authorized_keys" "$runtime/dropbear_ed25519_host_key" "$runtime/interfaces"
+    printf '# No diagnostic Ethernet configuration.\n' > "$runtime/interfaces"
+}
+stop_sshd() {
+    if [ -f /run/dropbear.pid ]; then
+        start-stop-daemon -K -q -p /run/dropbear.pid -x /usr/sbin/dropbear ||
+            fail "could not stop Dropbear."
+        rm -f /run/dropbear.pid
+    fi
+}
+
+case "$action" in
+    enable)
+        check_data
+        enable_store "$@"
+        ;;
+    disable)
+        check_data
+        rm -f "$store/enabled" "$import"
+        sync
+        clear_runtime
+        stop_sshd
+        echo "PicoOS diagnostics disabled; existing sessions may remain until reboot."
+        ;;
+    prepare)
+        clear_runtime
+        check_data
+        if [ -e "$import" ] || [ -L "$import" ]; then
+            private_file "$import"
+            [ "$(cat "$import")" = "$version" ] || fail "invalid offline import request."
+            if [ ! -e "$store" ]; then
+                if [ -e /etc/dropbear/dropbear_ed25519_host_key ]; then
+                    enable_store /root/.ssh/authorized_keys /etc/dropbear/dropbear_ed25519_host_key
+                else
+                    enable_store /root/.ssh/authorized_keys
+                fi
+            fi
+            rm "$import"
+        fi
+        if ! enabled; then
+            echo "PicoOS diagnostics not enabled; root SSH remains off."
+            exit 0
+        fi
+        validate_store
+        cp "$store/authorized_keys" "$runtime/authorized_keys"
+        cp "$store/dropbear_ed25519_host_key" "$runtime/dropbear_ed25519_host_key"
+        chmod 600 "$runtime/authorized_keys" "$runtime/dropbear_ed25519_host_key"
+        authorized_key "$runtime/authorized_keys"
+        host_key "$runtime/dropbear_ed25519_host_key"
+        [ ! -L /root/.ssh ] || fail "root SSH directory is a symlink."
+        mkdir -p /root/.ssh
+        chmod 700 /root/.ssh
+        if [ -L /root/.ssh/authorized_keys ]; then
+            [ "$(readlink /root/.ssh/authorized_keys)" = "$runtime/authorized_keys" ] ||
+                fail "unexpected authorized_keys symlink."
+        elif [ -e /root/.ssh/authorized_keys ]; then
+            [ -f /root/.ssh/authorized_keys ] || fail "unexpected authorized_keys type."
+            rm /root/.ssh/authorized_keys
+        fi
+        ln -snf "$runtime/authorized_keys" /root/.ssh/authorized_keys
+        printf '%s\n' "$version" > "$runtime/ready"
+        echo "PicoOS diagnostic RAM keys prepared; SSH uses WLAN."
+        ;;
+    start|check)
+        check_data
+        if ! enabled; then
+            echo "PicoOS diagnostics not enabled; no SSH listener started."
+            exit 0
+        fi
+        check_prepared
+        if [ "$action" = start ]; then
+            start-stop-daemon -S -q -p /run/dropbear.pid -x /usr/sbin/dropbear -- \
+                -s -r "$runtime/dropbear_ed25519_host_key" -P /run/dropbear.pid ||
+                fail "could not start key-only Dropbear."
+            echo "PicoOS key-only diagnostic SSH started."
+        else
+            pid=$(cat /run/dropbear.pid) || fail "Dropbear PID missing."
+            case "$pid" in ''|*[!0-9]*) fail "invalid Dropbear PID." ;; esac
+            [ "$pid" -gt 0 ] && kill -0 "$pid" ||
+                fail "diagnostic Dropbear is not running."
+            [ "$(readlink -f "/proc/$pid/exe")" = "$(readlink -f /usr/sbin/dropbear)" ] ||
+                fail "PID does not identify Dropbear."
+        fi
+        ;;
+    stop) stop_sshd ;;
+esac

@@ -1,0 +1,55 @@
+#!/bin/sh
+set -eu
+
+config=/data/network/wpa_supplicant.conf
+runtime_dir=/run/picoos-wifi
+runtime_config=$runtime_dir/wpa_supplicant.conf
+pidfile=/run/wpa_supplicant.wlan0.pid
+
+case "$1" in
+    start)
+        if ! mountpoint -q /data; then
+            echo "WLAN: /data is not mounted; refusing to use nonpersistent credentials." >&2
+            exit 1
+        fi
+        if [ ! -f "$config" ] || [ ! -s "$config" ] || [ -L "$config" ]; then
+            echo "WLAN: missing or invalid $config; setup portal is not implemented yet." >&2
+            exit 1
+        fi
+        case "$(stat -c '%u:%a' "$config")" in
+            0:600|0:700) ;;
+            *)
+                echo "WLAN: $config must be root-owned and accessible only to root (0600 or 0700)." >&2
+                exit 1
+                ;;
+        esac
+        # BusyBox runs inline pre-up commands before the wait_iface hook.
+        if ! IFACE=wlan0 IF_WAIT_DELAY="${IF_WAIT_DELAY:-10}" \
+            /etc/network/if-pre-up.d/wait_iface; then
+            echo "WLAN: wlan0 did not appear before the startup timeout." >&2
+            exit 1
+        fi
+        umask 077
+        mkdir -p "$runtime_dir"
+        chmod 700 "$runtime_dir"
+        cp "$config" "$runtime_config"
+        chmod 600 "$runtime_config"
+        if ! /usr/sbin/wpa_supplicant -B -i wlan0 -D nl80211 \
+            -c "$runtime_config" -P "$pidfile"; then
+            rm -f "$runtime_config"
+            echo "WLAN: failed to start wpa_supplicant." >&2
+            exit 1
+        fi
+        ;;
+    stop)
+        if [ -f "$pidfile" ]; then
+            start-stop-daemon -K -p "$pidfile" -x /usr/sbin/wpa_supplicant
+            rm -f "$pidfile"
+        fi
+        rm -f "$runtime_config"
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}" >&2
+        exit 1
+        ;;
+esac

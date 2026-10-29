@@ -1,0 +1,134 @@
+#!/bin/sh
+# Persistent runtime state: an ext4 image on the FAT32 data partition, loop-mounted
+# at /persist. FAT32 cannot hold Unix modes, symlinks or names such as "B8:27:...".
+set -eu
+
+DATA_DIR=${PICOOS_STATE_DATA_DIR:-/data}
+IMAGE=${PICOOS_STATE_IMAGE:-$DATA_DIR/picoos-state.img}
+MOUNT_DIR=${PICOOS_STATE_MOUNT_DIR:-/persist}
+IMAGE_MIB=${PICOOS_STATE_IMAGE_MIB:-128}
+MOUNTS_FILE=${PICOOS_STATE_MOUNTS_FILE:-/proc/mounts}
+SKIP_MOUNT=${PICOOS_STATE_SKIP_MOUNT:-0}
+ROOT_PREFIX=${PICOOS_STATE_ROOT_PREFIX:-}
+
+# name:path; each directory is linked from the path the service expects.
+LINKS="bluetooth:/var/lib/bluetooth pico8-home:/root/.lexaloffle"
+
+fail() {
+    echo "picoos-state: $*" >&2
+    exit 1
+}
+
+is_mounted() {
+    awk -v mount="$1" '$2 == mount { found = 1 } END { exit !found }' "$MOUNTS_FILE"
+}
+
+create_image() {
+    tmp="$IMAGE.new"
+    rm -f "$tmp"
+    dd if=/dev/zero of="$tmp" bs=1M count="$IMAGE_MIB" 2>/dev/null
+    mke2fs -q -t ext4 -L PICOOS-STATE -m 0 "$tmp" ||
+        { rm -f "$tmp"; fail "could not create $IMAGE"; }
+    sync
+    mv "$tmp" "$IMAGE"
+    sync
+}
+
+mount_image() {
+    is_mounted "$MOUNT_DIR" && return
+    mkdir -p "$MOUNT_DIR"
+    if command -v e2fsck >/dev/null 2>&1; then
+        e2fsck -p "$IMAGE" >/dev/null 2>&1 || [ $? -lt 4 ] ||
+            fail "$IMAGE is damaged; move it aside to start with empty state"
+    fi
+    mount -t ext4 -o loop,nosuid,nodev,noatime "$IMAGE" "$MOUNT_DIR" ||
+        fail "could not mount $IMAGE"
+    chmod 0700 "$MOUNT_DIR"
+}
+
+link_dir() {
+    name=$1
+    state_path=$ROOT_PREFIX$2
+    target=$MOUNT_DIR/$name
+    [ ! -L "$target" ] || fail "$target must not be a symlink"
+    [ ! -e "$target" ] || [ -d "$target" ] ||
+        fail "$target is not a directory"
+    mkdir -p "$target"
+    chmod 0700 "$target"
+
+    if [ -L "$state_path" ]; then
+        [ "$(readlink "$state_path")" = "$target" ] ||
+            fail "$state_path is not the expected persistent-state link"
+        return
+    fi
+    if [ -e "$state_path" ]; then
+        [ -d "$state_path" ] && [ -z "$(ls -A "$state_path")" ] ||
+            fail "$state_path already contains data; stop its service and explicitly migrate it (PICO-8: picoos-state migrate-pico8)"
+        rmdir "$state_path"
+    fi
+    mkdir -p "$(dirname "$state_path")"
+    ln -s "$target" "$state_path"
+}
+
+prepare_storage() {
+    is_mounted "$DATA_DIR" ||
+        fail "$DATA_DIR is not mounted; refusing non-persistent state"
+    [ -f "$IMAGE" ] || create_image
+    [ "$SKIP_MOUNT" = 1 ] || mount_image
+}
+
+prepare() {
+    prepare_storage
+    for entry in $LINKS; do
+        link_dir "${entry%%:*}" "${entry#*:}"
+    done
+}
+
+migrate_pico8() {
+    source=$ROOT_PREFIX/root/.lexaloffle
+    backup=$source.picoos-backup
+    target=$MOUNT_DIR/pico8-home
+    stage=$MOUNT_DIR/.pico8-home.migrating
+    [ -d "$source" ] && [ ! -L "$source" ] ||
+        fail "$source must be a real directory; stop PICO-8 before migration"
+    [ ! -e "$backup" ] && [ ! -L "$backup" ] ||
+        fail "$backup already exists; refusing to overwrite a backup"
+    prepare_storage
+    [ ! -L "$target" ] || fail "$target must not be a symlink"
+    if [ -e "$target" ]; then
+        [ -d "$target" ] && [ -z "$(ls -A "$target")" ] ||
+            fail "$target already contains data; reconcile both copies manually, without overwriting"
+    fi
+    [ ! -e "$stage" ] && [ ! -L "$stage" ] ||
+        fail "$stage exists from an earlier attempt; inspect it before retrying"
+    source_usage=$(du -sk "$source") || fail "could not measure $source"
+    source_kib=$(printf '%s\n' "$source_usage" | awk 'NR == 1 { print $1 }')
+    space_usage=$(df -Pk "$MOUNT_DIR") || fail "could not measure free space at $MOUNT_DIR"
+    available_kib=$(printf '%s\n' "$space_usage" | awk 'NR == 2 { print $4 }')
+    case "$source_kib:$available_kib" in
+        *[!0-9:]*|:*|*:) fail "could not determine source size or available space in KiB" ;;
+    esac
+    required_kib=$((source_kib + 16 * 1024))
+    [ "$available_kib" -ge "$required_kib" ] ||
+        fail "$MOUNT_DIR has $available_kib KiB free; migration requires $required_kib KiB (source plus 16 MiB reserve); enlarge the state image offline before migration (no automatic resize)"
+    mkdir -m 0700 "$stage"
+    # Publish only a complete copy; retain both the original and failed staging data.
+    cp -a "$source/." "$stage/" ||
+        fail "copy failed (check free space); original retained at $source, partial copy at $stage"
+    chmod 0700 "$stage"
+    sync
+    [ ! -d "$target" ] || rmdir "$target"
+    mv "$stage" "$target"
+    sync
+    mv "$source" "$backup"
+    ln -s "$target" "$source"
+    sync
+    echo "picoos-state: migrated $source; original retained at $backup"
+}
+
+case "${1:-}" in
+    prepare) prepare ;;
+    migrate-pico8) migrate_pico8 ;;
+    create) [ -f "$IMAGE" ] || create_image ;;
+    *) echo "Usage: $0 {prepare|migrate-pico8|create}" >&2; exit 1 ;;
+esac

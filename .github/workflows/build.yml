@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: georgduees/picoctrl
-          ref: 5c0504a19f31b29b665d4575550a0586f35fad8c
+          ref: 926940ac651e458c495bc3c5a7df598e61633afb
           path: picoctrl
           ssh-key: ${{ secrets.PICOCTRL_DEPLOY_KEY }}
 

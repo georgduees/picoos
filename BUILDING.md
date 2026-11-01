@@ -194,11 +194,14 @@ dependencies must remain in the PicoCtrl checkout's `vendor/` directory
 because Buildroot builds with network access disabled. PicoCtrl code uses MIT;
 vendored dependencies retain their BSD-2-Clause and BSD-3-Clause license texts.
 The Buildroot package records all three licenses and their corresponding files.
-On 2026-10-31 the ARMv6 service was installed manually on the test Zero 2 W.
-After a reboot it started automatically from `S60`; the root-only socket and
-read-only requests to capabilities, network, Wi-Fi, Bluetooth and display
-were verified. A newly generated image has not yet been written to SD or
-tested.
+On 2026-10-31 the ARMv6 service was installed manually on the test Zero 2 W
+and verified after reboot. On 2026-11-01 the live service was updated to
+PicoCtrl commit `5c0504a`; its root-only socket, all five read-only API
+endpoints, Wi-Fi scan and Bluetooth scan were verified. The existing Wi-Fi
+connection/profile remained unchanged, and PICO-8 kept running. The complete
+image build and CI checks passed in GitHub Actions
+([run 41292929271](https://github.com/georgduees/picoos/actions/runs/41292929271));
+the resulting image has not been written to SD or tested on hardware.
 
 `OUTPUT_DIR` and `DOWNLOAD_DIR` may be placed on a larger mounted drive to
 keep generated build products and package downloads off the source workspace.

@@ -27,6 +27,14 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Check out PicoCtrl hardware shim
+        uses: actions/checkout@v4
+        with:
+          repository: georgduees/picoctrl
+          ref: 5c0504a19f31b29b665d4575550a0586f35fad8c
+          path: picoctrl
+          ssh-key: ${{ secrets.PICOCTRL_DEPLOY_KEY }}
+
       - name: Install host dependencies
         run: |
           sudo apt-get update
@@ -119,7 +127,8 @@ jobs:
           make -j2 build \
             OUTPUT_DIR="${GITHUB_WORKSPACE}/output" \
             DOWNLOAD_DIR="${GITHUB_WORKSPACE}/dl" \
-            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache"
+            CCACHE_DIR="${RUNNER_TEMP}/picoos-ccache" \
+            PICOCTRL_SYSTEM_SITE="${GITHUB_WORKSPACE}/picoctrl"
 
       - name: Report compiler cache statistics
         if: always()

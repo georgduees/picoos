@@ -187,11 +187,13 @@ The Zero 2 W image also builds the `picoctrl-system` hardware shim. Its source
 is a local checkout at `../picoctrl`, alongside this `picoos` checkout; the
 Buildroot package installs it as `/usr/sbin/picoctrl-system` and starts it from
 the root-only `S60picoctrl-system` init service. Keep the two checkouts at
-these sibling paths when building. Its Go dependencies must remain in the
-PicoCtrl checkout's `vendor/` directory because Buildroot builds with network
-access disabled. PicoCtrl code uses MIT; vendored dependencies retain their
-BSD-2-Clause and BSD-3-Clause license texts. The Buildroot package records all
-three licenses and their corresponding files.
+these sibling paths when building locally. GitHub Actions checks out a pinned
+PicoCtrl commit into the workspace and uses the read-only `PICOCTRL_DEPLOY_KEY`
+repository secret to access the private PicoCtrl repository. Its Go
+dependencies must remain in the PicoCtrl checkout's `vendor/` directory
+because Buildroot builds with network access disabled. PicoCtrl code uses MIT;
+vendored dependencies retain their BSD-2-Clause and BSD-3-Clause license texts.
+The Buildroot package records all three licenses and their corresponding files.
 On 2026-10-31 the ARMv6 service was installed manually on the test Zero 2 W.
 After a reboot it started automatically from `S60`; the root-only socket and
 read-only requests to capabilities, network, Wi-Fi, Bluetooth and display

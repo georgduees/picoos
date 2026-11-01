@@ -5,7 +5,7 @@
 ################################################################################
 
 PICOCTRL_SYSTEM_VERSION = local
-PICOCTRL_SYSTEM_SITE = $(BR2_EXTERNAL_PICOOS_PATH)/../../picoctrl
+PICOCTRL_SYSTEM_SITE ?= $(BR2_EXTERNAL_PICOOS_PATH)/../../picoctrl
 PICOCTRL_SYSTEM_SITE_METHOD = local
 PICOCTRL_SYSTEM_GOMOD = github.com/georgduees/picoctrl
 PICOCTRL_SYSTEM_BUILD_TARGETS = ./cmd/picoctrl-system

@@ -33,6 +33,11 @@ case "$1" in
         mkdir -p "$runtime_dir"
         chmod 700 "$runtime_dir"
         cp "$config" "$runtime_config"
+        if grep -q '^update_config=' "$runtime_config"; then
+            sed -i 's/^update_config=.*/update_config=1/' "$runtime_config"
+        else
+            printf '\nupdate_config=1\n' >> "$runtime_config"
+        fi
         chmod 600 "$runtime_config"
         if ! /usr/sbin/wpa_supplicant -B -i wlan0 -D nl80211 \
             -c "$runtime_config" -P "$pidfile"; then

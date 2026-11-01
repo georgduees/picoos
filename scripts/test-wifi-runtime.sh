@@ -42,7 +42,7 @@ done
 test "$config" = "$TEST_ROOT/run/picoos-wifi/wpa_supplicant.conf"
 test "$("$REAL_STAT" -c %a "$config")" = 600
 test "$("$REAL_STAT" -c %a "$(dirname "$config")")" = 700
-cmp "$TEST_ROOT/data/network/wpa_supplicant.conf" "$config"
+grep -qx 'update_config=1' "$config"
 test "${TEST_WPA_FAILURE:-0}" = 0 || exit 1
 echo 123 > "$pidfile"
 EOF
@@ -61,10 +61,12 @@ sed -e "s|/data/|$work/data/|g" \
 config="$work/data/network/wpa_supplicant.conf"
 runtime="$work/run/picoos-wifi/wpa_supplicant.conf"
 printf 'country=DE\nnetwork={\n ssid="test-only"\n psk="test-only-password"\n}\n' > "$config"
+cp "$config" "$work/config.expected"
 for mode in 600 700; do
     chmod "$mode" "$config"
     sh "$work/wifi" start
     test -f "$runtime"
+    cmp "$config" "$work/config.expected"
     sh "$work/wifi" stop
     test ! -e "$runtime"
 done

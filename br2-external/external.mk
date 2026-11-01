@@ -13,3 +13,5 @@ define PICOOS_INSTALL_BOOTANIM
 endef
 
 PSPLASH_PRE_CONFIGURE_HOOKS += PICOOS_INSTALL_BOOTANIM
+
+include $(sort $(wildcard $(BR2_EXTERNAL_PICOOS_PATH)/package/*/*.mk))

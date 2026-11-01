@@ -1,0 +1,9 @@
+config BR2_PACKAGE_PICOCTRL_SYSTEM
+	bool "picoctrl-system"
+	depends on BR2_PACKAGE_HOST_GO_TARGET_ARCH_SUPPORTS
+	select BR2_PACKAGE_HOST_GO
+	help
+	  Build and install the privileged PicoCtrl hardware shim for PicoOS.
+
+	  The picoctrl source checkout must be beside the picoos checkout, in a
+	  sibling directory named picoctrl.

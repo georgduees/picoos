@@ -183,6 +183,21 @@ make build OUTPUT_DIR=/path/to/ssd/picoos/output DOWNLOAD_DIR=/path/to/ssd/picoo
 checksum before extraction. The first build downloads the selected external
 toolchain and package sources.
 
+The Zero 2 W image also builds the `picoctrl-system` hardware shim. Its source
+is a local checkout at `../picoctrl`, alongside this `picoos` checkout; the
+Buildroot package installs it as `/usr/sbin/picoctrl-system` and starts it from
+the root-only `S60picoctrl-system` init service. Keep the two checkouts at
+these sibling paths when building. Its Go dependencies must remain in the
+PicoCtrl checkout's `vendor/` directory because Buildroot builds with network
+access disabled. PicoCtrl code uses MIT; vendored dependencies retain their
+BSD-2-Clause and BSD-3-Clause license texts. The Buildroot package records all
+three licenses and their corresponding files.
+On 2026-10-31 the ARMv6 service was installed manually on the test Zero 2 W.
+After a reboot it started automatically from `S60`; the root-only socket and
+read-only requests to capabilities, network, Wi-Fi, Bluetooth and display
+were verified. A newly generated image has not yet been written to SD or
+tested.
+
 `OUTPUT_DIR` and `DOWNLOAD_DIR` may be placed on a larger mounted drive to
 keep generated build products and package downloads off the source workspace.
 Compiler cache is enabled and stored under `$(OUTPUT_DIR)/ccache` by default;

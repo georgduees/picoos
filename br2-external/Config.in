@@ -1,2 +1,5 @@
 menu "PICO-8 Console"
+
+source "$BR2_EXTERNAL_PICOOS_PATH/package/picoctrl-system/Config.in"
+
 endmenu

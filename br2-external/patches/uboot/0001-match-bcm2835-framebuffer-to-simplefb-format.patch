@@ -1,0 +1,26 @@
+From: PicoOS developers
+Subject: [PATCH] video: bcm2835: match pixel order to simplefb handoff
+
+The simplefb handoff advertises a8r8g8b8 for 32-bit framebuffers, but the
+BCM2835 driver requests RGB byte order from the firmware. Request BGR byte
+order so the actual little-endian framebuffer matches that description.
+This fixes swapped red/blue channels in the early Linux console and logos
+without changing artwork or the later VC4/KMS framebuffer.
+
+Signed-off-by: PicoOS developers
+---
+ drivers/video/bcm2835.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/video/bcm2835.c b/drivers/video/bcm2835.c
+--- a/drivers/video/bcm2835.c
++++ b/drivers/video/bcm2835.c
+@@ -24,7 +24,7 @@ static int bcm2835_video_probe(struct udevice *dev)
+ 		return -EIO;
+ 
+ 	debug("bcm2835: Setting up display for %d x %d\n", w, h);
+-	ret = bcm2835_set_video_params(&w, &h, 32, BCM2835_MBOX_PIXEL_ORDER_RGB,
++	ret = bcm2835_set_video_params(&w, &h, 32, BCM2835_MBOX_PIXEL_ORDER_BGR,
+ 				       BCM2835_MBOX_ALPHA_MODE_IGNORED,
+ 				       &fb_base, &fb_size, &pitch);
+ 	if (ret)

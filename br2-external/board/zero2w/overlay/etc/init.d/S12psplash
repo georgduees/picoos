@@ -1,0 +1,56 @@
+#!/bin/sh
+
+case "$1" in
+	start)
+		if [ -e /run/psplash.pid ]; then
+			echo "psplash PID file exists; stop the service before starting it." >&2
+			exit 1
+		fi
+		if [ ! -c /dev/fb0 ]; then
+			echo "psplash cannot start: /dev/fb0 is unavailable; check HDMI/KMS." >&2
+			exit 1
+		fi
+		/usr/bin/psplash &
+		pid=$!
+		sleep 0.1
+		if ! kill -0 "$pid" 2>/dev/null; then
+			wait "$pid"
+			echo "psplash exited during startup." >&2
+			exit 1
+		fi
+		echo "$pid" > /run/psplash.pid
+		;;
+	stop)
+		if [ -f /run/psplash.pid ]; then
+			pid=$(cat /run/psplash.pid)
+			case "$pid" in
+				''|*[!0-9]*|0|1)
+					echo "Invalid psplash PID." >&2
+					exit 1
+					;;
+			esac
+			if ! kill -0 "$pid" 2>/dev/null; then
+				rm -f /run/psplash.pid
+				echo "psplash had already exited; removed stale PID file." >&2
+				exit 1
+			fi
+			if ! /usr/bin/psplash-write "QUIT"; then
+				echo "Failed to stop psplash via its control FIFO." >&2
+				exit 1
+			fi
+			for attempt in 1 2 3 4 5 6 7 8 9 10; do
+				kill -0 "$pid" 2>/dev/null || break
+				sleep 0.1
+			done
+			if kill -0 "$pid" 2>/dev/null; then
+				echo "psplash did not exit after QUIT." >&2
+				exit 1
+			fi
+			rm -f /run/psplash.pid
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop}" >&2
+		exit 1
+		;;
+esac

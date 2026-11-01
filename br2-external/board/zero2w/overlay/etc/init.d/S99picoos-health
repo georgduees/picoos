@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+fail() {
+    echo "PicoOS local boot health failed: $*" >&2
+    reboot -f
+    exit 1
+}
+case "${1:-}" in
+    start)
+        . /usr/lib/picoos/slots.sh
+        slot=$(picoos_current_slot) || fail "root slot identity"
+        awk '$1 == "/dev/mmcblk0p4" && $2 == "/data" && $3 == "vfat" && $4 ~ /(^|,)rw(,|$)/ { found=1 } END { exit !found }' /proc/mounts ||
+            fail "writable FAT32 /data mount"
+        probe=$(mktemp /data/.health.XXXXXX) || fail "data write"
+        rm "$probe" || fail "data cleanup"
+        [ -s /boot/zImage ] && [ -s /boot/bcm2710-rpi-zero-2-w.dtb ] &&
+            [ -s /etc/swupdate/public-key.pub ] && [ -c /dev/watchdog ] ||
+            fail "local boot assets or watchdog"
+        [ "$(fw_printenv -n boot_slot)" = "$slot" ] || fail "bootloader slot identity"
+        /usr/sbin/picoos-diagnostics check || fail "opt-in diagnostic access"
+        start-stop-daemon -S -b -m -p /run/picoos-watchdog.pid \
+            -x /sbin/watchdog -- -F -t 5 -T 15 /dev/watchdog ||
+            fail "watchdog start"
+        sleep 1
+        pid=$(cat /run/picoos-watchdog.pid) || fail "watchdog pid"
+        kill -0 "$pid" || fail "watchdog is not running"
+        cat > /run/picoos-confirm.env <<EOF
+stable_slot=$slot
+upgrade_available=0
+bootcount=0
+recovery_status=
+ustate=0
+EOF
+        fw_setenv -s /run/picoos-confirm.env || fail "atomic slot confirmation"
+        rm /run/picoos-confirm.env
+        echo "PicoOS slot $slot confirmed by local health checks."
+        ;;
+    stop) : ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+esac

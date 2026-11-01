@@ -3,6 +3,14 @@
 Das Projekt verwendet Semantic Versioning (`MAJOR.MINOR.PATCH`) mit einem
 vorangestellten `v` bei Git-Tags.
 
+## GitFlow
+
+- `main` enthaelt ausschliesslich getestete Release-Staende.
+- `develop` ist der Integrationszweig fuer die naechste Version.
+- Aenderungen werden in kurzlebigen `feature/<name>`-Branches entwickelt und
+  nach gezielten Tests in `develop` integriert.
+- Release-Tags werden annotiert auf den getesteten Release-Commit gesetzt.
+
 - `MAJOR`: inkompatible Aenderungen an Datenformat, Update- oder
   Konfigurationsschnittstellen.
 - `MINOR`: neue, abwaertskompatible Funktionen.

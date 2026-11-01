@@ -1,0 +1,120 @@
+#!/bin/sh
+set -eu
+
+binary=/usr/sbin/picoctrl-system
+runtime_dir=/run/picoctrl-system
+socket=$runtime_dir/control.sock
+pidfile=/run/picoctrl-system.pid
+
+start_service() {
+    [ -x "$binary" ] || {
+        echo "picoctrl-system is not installed." >&2
+        return 1
+    }
+    [ ! -e "$pidfile" ] || {
+        echo "picoctrl-system PID file already exists." >&2
+        return 1
+    }
+    [ ! -L "$runtime_dir" ] || {
+        echo "picoctrl-system runtime directory must not be a symlink." >&2
+        return 1
+    }
+    [ ! -e "$runtime_dir" ] || [ -d "$runtime_dir" ] || {
+        echo "picoctrl-system runtime path is not a directory." >&2
+        return 1
+    }
+    install -d -m 0700 "$runtime_dir"
+    [ "$(stat -c '%u:%a' "$runtime_dir")" = "0:700" ] || {
+        echo "picoctrl-system runtime directory must be root-only." >&2
+        return 1
+    }
+    [ ! -e "$socket" ] || {
+        echo "picoctrl-system socket path already exists." >&2
+        return 1
+    }
+
+    start-stop-daemon -S -q -b -m -p "$pidfile" -x "$binary" -- \
+        --backend hardware --socket "$socket"
+    pid=$(cat "$pidfile")
+    case "$pid" in
+        ''|*[!0-9]*|0|1)
+            echo "Invalid picoctrl-system PID." >&2
+            return 1
+            ;;
+    esac
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if [ -S "$socket" ]; then
+            echo "picoctrl-system hardware shim ready."
+            return 0
+        fi
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$pidfile"
+            rmdir "$runtime_dir" 2>/dev/null || true
+            echo "picoctrl-system failed to create its socket." >&2
+            return 1
+        fi
+        sleep 0.1
+    done
+    echo "picoctrl-system startup timed out." >&2
+    stop_service || true
+    return 1
+}
+
+stop_service() {
+    if [ ! -e "$pidfile" ]; then
+        if [ -e "$socket" ] || [ -L "$socket" ]; then
+            echo "picoctrl-system socket exists without a PID file; refusing cleanup." >&2
+            return 1
+        fi
+        if [ -d "$runtime_dir" ]; then
+            rmdir "$runtime_dir" 2>/dev/null || {
+                echo "picoctrl-system runtime directory is not empty." >&2
+                return 1
+            }
+        fi
+        return 0
+    fi
+
+    pid=$(cat "$pidfile")
+    case "$pid" in
+        ''|*[!0-9]*|0|1)
+            echo "Invalid picoctrl-system PID." >&2
+            return 1
+            ;;
+    esac
+    if kill -0 "$pid" 2>/dev/null; then
+        executable=$(readlink -f "/proc/$pid/exe") || {
+            echo "Cannot verify picoctrl-system process." >&2
+            return 1
+        }
+        [ "$executable" = "$binary" ] || {
+            echo "PID does not belong to picoctrl-system." >&2
+            return 1
+        }
+        start-stop-daemon -K -q -p "$pidfile" -x "$binary" -s TERM
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.2
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "picoctrl-system did not stop after SIGTERM." >&2
+            return 1
+        fi
+    fi
+    [ ! -e "$socket" ] || {
+        echo "picoctrl-system stopped without removing its socket." >&2
+        return 1
+    }
+    rm -f "$pidfile"
+    rmdir "$runtime_dir"
+}
+
+case "${1:-}" in
+    start) start_service ;;
+    stop) stop_service ;;
+    restart)
+        stop_service
+        start_service
+        ;;
+    *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac

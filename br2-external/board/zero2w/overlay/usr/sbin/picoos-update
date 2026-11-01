@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+umask 077
+
+fail() { echo "Update refused: $*" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || fail "root privileges required."
+[ "$#" -eq 1 ] || fail "usage: picoos-update /data/update.swu"
+[ -f "$1" ] && [ -s "$1" ] || fail "update package is not a nonempty regular file."
+. /usr/lib/picoos/slots.sh
+slot=$(picoos_current_slot) || fail "cannot identify the running slot."
+[ "$(fw_printenv -n boot_slot)" = "$slot" ] &&
+    [ "$(fw_printenv -n stable_slot)" = "$slot" ] &&
+    [ "$(fw_printenv -n upgrade_available)" = 0 ] ||
+    fail "a trial boot or another update is pending."
+awk '$1 == "/dev/mmcblk0p4" && $2 == "/data" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts ||
+    fail "/data is not the expected mounted FAT32 partition."
+mkdir /run/picoos-update.lock || fail "another update is running."
+work=
+cleanup() {
+    [ -z "$work" ] || rm -rf -- "$work"
+    rmdir /run/picoos-update.lock
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+work=$(mktemp -d /data/.swupdate.XXXXXX)
+case "$slot" in A) target=B ;; B) target=A ;; esac
+TMPDIR="$work" swupdate -i "$1" -e "stable,$target" -k /etc/swupdate/public-key.pub ||
+    fail "SWUpdate failed; the update has not been confirmed."
+echo "Slot $target written and read-back verified. Reboot to begin the three-attempt trial."

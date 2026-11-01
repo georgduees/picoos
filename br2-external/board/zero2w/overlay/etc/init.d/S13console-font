@@ -1,0 +1,15 @@
+#!/bin/sh
+case "${1:-}" in
+    start)
+        if [ ! -c /dev/fb0 ]; then
+            echo "Console font deferred: no framebuffer is available." >&2
+            exit 0
+        fi
+        if ! /usr/sbin/setfont -C /dev/tty3 /usr/share/consolefonts/picoos.psf; then
+            echo "Failed to load PicoOS console font on tty3." >&2
+            exit 1
+        fi
+        ;;
+    stop) : ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+esac

@@ -1,0 +1,46 @@
+#!/bin/sh
+set -eu
+
+accent=
+reset=
+if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR:-}" ]; then
+    accent=$(printf '\033[36m')
+    reset=$(printf '\033[0m')
+fi
+
+printf '\n%s' "$accent"
+cat <<'EOF'
+        *
+      * + *       P I C O O S
+        *         PICO-8 console / Raspberry Pi Zero 2 W
+  ----------------------------------------------------------
+EOF
+printf '%s' "$reset"
+printf '  Host       : %s\n' "$(hostname)"
+printf '  Kernel     : %s\n' "$(uname -r)"
+awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^picoos.slot=/) {
+    sub(/^picoos.slot=/, "", $i); print "  Boot slot  : " $i; found=1
+} } END { if (!found) print "  Boot slot  : not reported" }' /proc/cmdline
+awk '{ minutes=int($1/60); printf "  Uptime     : %dd %02dh %02dm\n",
+    int(minutes/1440), int(minutes/60)%24, minutes%60 }' /proc/uptime
+awk '{ printf "  Load       : %s / %s / %s\n", $1, $2, $3 }' /proc/loadavg
+awk '/^MemTotal:/ { total=$2 } /^MemAvailable:/ { available=$2; found=1 }
+    END { if (total && found) printf "  Memory     : %.0f / %.0f MiB used\n",
+        (total-available)/1024, total/1024;
+        else print "  Memory     : not reported" }' /proc/meminfo
+if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+    awk '{ printf "  CPU temp   : %.1f C\n", $1/1000 }' \
+        /sys/class/thermal/thermal_zone0/temp
+fi
+ip -4 addr show dev wlan0 | awk '/inet / { print "  WLAN IPv4  : " $2; found=1 }
+    END { if (!found) print "  WLAN IPv4  : not assigned" }'
+cat <<'EOF'
+  ----------------------------------------------------------
+  PICO-8     : /etc/init.d/S99start-pico8 start|stop|restart
+  Boot log   : cat /var/log/boot.log
+  PICO-8 log : cat /var/log/pico8.log
+  System log : tail -n 60 /var/log/messages
+  Update     : picoos-update /data/package.swu
+  Restart    : reboot
+
+EOF
